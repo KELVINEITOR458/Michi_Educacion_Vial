@@ -106,6 +106,14 @@ export class QuizProgressService {
       corrected.level1CompletedAt = undefined;
     }
 
+    // Caso 6: Nivel fácil marcado como completado pero con score 0 (datos corruptos)
+    if (corrected.easy.completed && corrected.easy.score === 0) {
+      console.log('🔧 Datos corruptos detectados en nivel fácil, reseteando');
+      corrected.easy.completed = false;
+      corrected.easy.score = 0;
+      corrected.easy.completedAt = undefined;
+    }
+
     return corrected;
   }
 
@@ -113,7 +121,7 @@ export class QuizProgressService {
     try {
       await AsyncStorage.setItem(QUIZ_PROGRESS_KEY, JSON.stringify(progress));
     } catch (error) {
-      
+      console.error('❌ Error saving progress:', error);
     }
   }
 
@@ -238,5 +246,73 @@ export class QuizProgressService {
       completed: progress[levelId].completed,
       score: progress[levelId].score,
     };
+  }
+
+  static async emergencyReset(): Promise<void> {
+    console.log('🚨 Realizando reset de emergencia del progreso del quiz');
+    await this.forceCleanReset();
+  }
+
+  static async nuclearReset(): Promise<void> {
+    console.log('☢️ Realizando reset NUCLEAR - borrando TODOS los datos del quiz');
+    try {
+      await AsyncStorage.removeItem(QUIZ_PROGRESS_KEY);
+      console.log('✅ Datos del quiz completamente eliminados');
+    } catch (error) {
+      console.error('❌ Error durante reset nuclear:', error);
+    }
+  }
+
+  static async validateEasyLevelIntegrity(): Promise<boolean> {
+    try {
+      const progress = await this.getProgress();
+
+      // El nivel fácil nunca debe aparecer como completado si tiene score 0
+      if (progress.easy.completed && progress.easy.score === 0) {
+        console.log('❌ Integridad del nivel fácil comprometida');
+        return false;
+      }
+
+      // El nivel fácil siempre debe estar desbloqueado
+      if (!progress.easy.completed && !this.isLevelUnlocked('easy')) {
+        console.log('❌ Nivel fácil debería estar desbloqueado');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error validando integridad del nivel fácil:', error);
+      return false;
+    }
+  }
+
+  static async diagnosticReport(): Promise<string> {
+    try {
+      const progress = await this.getProgress();
+      const easyStatus = await this.getLevelStatus('easy');
+      const mediumStatus = await this.getLevelStatus('medium');
+      const hardStatus = await this.getLevelStatus('hard');
+
+      return `
+🔍 DIAGNÓSTICO DEL PROGRESO DEL QUIZ:
+
+📊 Datos actuales:
+- Easy: completado=${progress.easy.completed}, score=${progress.easy.score}
+- Medium: completado=${progress.medium.completed}, desbloqueado=${progress.medium.unlocked}
+- Hard: completado=${progress.hard.completed}, desbloqueado=${progress.hard.unlocked}
+
+📋 Estados calculados:
+- Easy: ${JSON.stringify(easyStatus)}
+- Medium: ${JSON.stringify(mediumStatus)}
+- Hard: ${JSON.stringify(hardStatus)}
+
+⚠️ Problemas detectados:
+${progress.easy.completed && progress.easy.score === 0 ? '- Nivel fácil marcado como completado con score 0' : '- Ningún problema detectado'}
+
+✅ Nivel fácil debería estar: desbloqueado=${easyStatus.unlocked}, completado=${easyStatus.completed}
+      `.trim();
+    } catch (error) {
+      return `❌ Error generando diagnóstico: ${error}`;
+    }
   }
 }

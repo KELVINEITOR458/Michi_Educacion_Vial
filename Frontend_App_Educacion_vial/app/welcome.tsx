@@ -289,7 +289,7 @@ export default function Welcome() {
                         <TouchableOpacity
                           style={[styles.islandButton, isLocked && styles.lockedIslandButton]}
                           onPress={() => {
-                            if (isUnlocked || shouldUnlockLevel2 || shouldUnlockLevel3) {
+                            if (isUnlocked) {
                               Animated.sequence([
                                 Animated.timing(buttonScale, {
                                   toValue: 0.9,
@@ -312,7 +312,7 @@ export default function Welcome() {
                               }, 150);
                             }
                           }}
-                          disabled={isLocked && !shouldUnlockLevel2 && !shouldUnlockLevel3}
+                          disabled={isLocked}
                           activeOpacity={0.85}
                         >
                           <Image
@@ -329,8 +329,8 @@ export default function Welcome() {
                         <Text style={styles.lockIcon}>🔒</Text>
                         <Text style={styles.lockMessage}>Nivel Bloqueado</Text>
                         <Text style={styles.lockRequirement}>
-                          {lvl === 2 ? (shouldUnlockLevel2 ? '¡Desbloqueado!' : 'Completa las 3 estrellas del Nivel 1') :
-                            lvl === 3 ? (shouldUnlockLevel3 ? '¡Desbloqueado!' : 'Completa el Nivel 2') :
+                          {lvl === 2 ? 'Completa las 3 estrellas del Nivel 1' :
+                            lvl === 3 ? 'Completa el Nivel 2' :
                               lvl === 4 ? 'Completa el Nivel 3' :
                                 'Completa el Nivel 4'}
                         </Text>
