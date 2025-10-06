@@ -206,8 +206,8 @@ server.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`📡 Socket.IO disponible en ws://192.168.68.117:${PORT}`);
   console.log(`🔗 HTTP API disponible en http://192.168.68.117:${PORT}`);
-  console.log(`🏥 Health check: http://192.168.68.123:${PORT}/health`);
-  console.log(`📊 Salas activas: http://192.168.68.123:${PORT}/rooms`);
+  console.log(`🏥 Health check: http://192.168.68.120:${PORT}/health`);
+  console.log(`📊 Salas activas: http://192.168.68.120:${PORT}/rooms`);
   console.log(`🌐 CORS configurado para aceptar conexiones desde cualquier origen`);
 });
 

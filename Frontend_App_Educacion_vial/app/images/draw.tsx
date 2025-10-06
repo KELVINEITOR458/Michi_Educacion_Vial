@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import { colors } from '../../src/utils/colors';
 import { ImagesApi } from '../../src/services/images';
@@ -26,6 +26,16 @@ const COLORS = [
   '#A8E6CF', // Verde menta
   '#FFB347', // Naranja
   '#000000', // Negro
+  '#FF1744', // Rojo brillante
+  '#2196F3', // Azul eléctrico
+  '#9C27B0', // Púrpura
+  '#FF9800', // Naranja vibrante
+  '#009688', // Verde azulado
+  '#795548', // Café
+  '#607D8B', // Gris azulado
+  '#E91E63', // Rosa intenso
+  '#3F51B5', // Índigo
+  '#8BC34A', // Verde lima
 ];
 export default function ImagesDraw() {
   const router = useRouter();
@@ -262,7 +272,7 @@ export default function ImagesDraw() {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
         // En React Native, localhost NO funciona, usar IP local de tu computadora
-        const baseUrl = 'http://192.168.68.123:3002'; // Tu IP local real
+        const baseUrl = 'http://192.168.68.120:3002'; // Tu IP local real
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {
@@ -367,8 +377,8 @@ export default function ImagesDraw() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>← Volver</Text>
+        <TouchableOpacity onPress={() => router.replace('/images' as Href)} style={styles.backBtn} activeOpacity={0.85}>
+          <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
         </TouchableOpacity>
         <Text style={styles.title}>{taskInfo.emoji} {taskInfo.title}</Text>
         <Text style={styles.subtitle}>¡Colorea y diviértete!</Text>
@@ -495,10 +505,8 @@ export default function ImagesDraw() {
         </TouchableOpacity>
       </View>
       {/* Save Button */}
-      <TouchableOpacity style={styles.saveBtn} onPress={onSave} disabled={saving}>
-        <LinearGradient colors={colors.gradientSuccess} style={styles.saveGradient}>
-          <Text style={styles.saveText}>{saving ? 'Guardando...' : '💾 Guardar Dibujo'}</Text>
-        </LinearGradient>
+      <TouchableOpacity style={[styles.saveBtn, { opacity: saving ? 0.5 : 1 }]} onPress={onSave} disabled={saving} activeOpacity={0.85}>
+        <Image source={require('../../assets/images/btn-guardar.png')} style={styles.saveImg} resizeMode="contain" />
       </TouchableOpacity>
     </View>
   );
@@ -535,6 +543,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  backBtn: { position: 'absolute', top: 0, left: 16, zIndex: 10 },
+  backImg: { width: 96, height: 84 },
   backButtonText: {
     color: colors.white,
     fontWeight: 'bold',
@@ -548,7 +558,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.white,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 0,
   },
   subtitle: {
     fontSize: width < 400 ? 14 : 16,
@@ -599,7 +609,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.white,
-    marginBottom: 8,
+    marginBottom: 6,
+    marginTop:4,
   },
   colorsContainer: {
     flexDirection: 'row',
@@ -664,14 +675,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
   },
-  saveGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveText: {
-    color: colors.white,
-    fontWeight: 'bold',
-    fontSize: width < 400 ? 16 : 18,
+  saveImg: {
+    width: '100%',
+    height: 80,
   },
   // Estilos para overlay de bordes
   overlayContainer: {
