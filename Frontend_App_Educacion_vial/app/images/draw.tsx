@@ -271,8 +271,10 @@ export default function ImagesDraw() {
       try {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
-        // En React Native, localhost NO funciona, usar IP local de tu computadora
-        const baseUrl = 'http://192.168.68.120:3002'; // Tu IP local real
+        // En React Native, usar API_BASE_URL configurado en app.json; fallback al DEFAULT_BASE_URL de ApiClient
+        const configured = (require('expo-constants').default.expoConfig?.extra?.API_BASE_URL as string) || undefined;
+        const { ApiClient } = require('../../src/services/api');
+        const baseUrl = configured || new ApiClient().request ? (new ApiClient() as any).baseUrl || 'http://172.22.224.1:3002' : 'http://172.22.224.1:3002';
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {
@@ -694,3 +696,4 @@ const styles = StyleSheet.create({
     opacity: 0.8, // Semi-transparente para no ocultar completamente los colores
   },
 });
+

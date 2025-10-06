@@ -48,7 +48,7 @@
       "reactCompiler": false
     },
     "extra": {
-      "API_BASE_URL": "http://192.168.68.120:3002"
+      "API_BASE_URL": "http://192.168.100.22:3002"
     }
   }
 }
