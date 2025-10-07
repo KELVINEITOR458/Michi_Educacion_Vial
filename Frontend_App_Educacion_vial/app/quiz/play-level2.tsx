@@ -5,7 +5,6 @@ import { colors } from '@/utils/colors';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import questions from './questions-level2';
 import { QuizProgressService } from '@/services/quizProgress';
-import { awardQuizLevel1Completion } from '@/services/progress2';
 
 // Mapeo de imágenes para las preguntas (completamente opcional)
 const questionImages: { [key: string]: any } = {};

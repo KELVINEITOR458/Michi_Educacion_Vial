@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ProgressApi } from './progress';
-import { AuthService } from './auth';
+import { ProgressApi } from '@/services/progress';
+import { AuthService } from '@/services/auth';
 
 const QUIZ_PROGRESS_KEY = 'quiz_progress';
 

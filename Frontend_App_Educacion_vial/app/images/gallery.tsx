@@ -89,7 +89,7 @@ export default function ImagesGallery() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/images')}>
           <Image source={require('../../assets/images/btn-volver.png')} style={styles.backButtonImage} resizeMode="contain" />
         </TouchableOpacity>
         <Image source={require('../../assets/images/logo-pintor.png')} style={styles.logoImage} resizeMode="contain" />

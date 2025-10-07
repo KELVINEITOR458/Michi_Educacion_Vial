@@ -6,809 +6,1546 @@ import {
   TouchableOpacity,
   Image,
   Modal,
-  Dimensions,
   Animated,
+  Dimensions,
   PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
   Alert,
+  Vibration
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { ProgressApi } from 'src/services/progress';
-import { BicycleProgressService } from 'src/services/bicycleProgress';
-import { awardBicycleLevel2Completion } from 'src/services/progress2';
-import { colors } from 'src/utils/colors';
+import { ProgressApi } from '../src/services/progress';
+import { BicycleProgressService } from '../src/services/bicycleProgress';
+import { awardBicycleLevel2Completion } from '../src/services/progress2';
+import { Audio } from 'expo-av';
 
-type Option = {
+// Colores definidos localmente para evitar problemas de importación
+const colors = {
+  primary: '#6366F1',
+  secondary: '#A78BFA',
+  accent: '#8B5CF6',
+  accentLight: '#C4B5FD',
+  background: '#FFFFFF',
+  white: '#FFFFFF',
+  lightWhite: '#EDE1E1',
+  black: '#1F2937',
+  textPrimary: '#1F2937',
+  textSecondary: '#6366F1',
+  textWhite: '#FFFFFF',
+  textAccent: '#8B5CF6',
+  textMuted: '#4B5563',
+  buttonPrimary: '#6366F1',
+  buttonSecondary: '#A78BFA',
+  buttonAccent: '#8B5CF6',
+  buttonSuccess: '#10B981',
+  buttonWarning: '#F59E0B',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#6366F1',
+  green: '#10B981',
+  lightGreen: '#34D399',
+  lightBlue: '#A78BFA',
+  gray: '#9CA3AF',
+  lightGray: '#F3F4F6',
+  shadow: 'rgba(99, 102, 241, 0.1)',
+  shadowDark: 'rgba(118, 120, 212, 0.3)',
+  gradientPrimary: ['#F59E0B', '#EF4444'],
+  gradientPrimaryLight: ['#F25233', '#ED664C'],
+  gradientSecondary: ['#A78BFA', '#C4B5FD'],
+  gradientAccent: ['#8B5CF6', '#A78BFA'],
+  gradientBackground: ['#FFFFFF', '#F8FAFC'],
+  gradientSuccess: ['#10B981', '#34D399'],
+  gradientWarning: ['#F59E0B', '#FBBF24'],
+  gradiantGreen: ['#10B981', '#34D399'],
+  gradientVialGreen: ['#16A34A', '#22C55E'],
+  gradientVialYellow: ['#FACC15', '#FDE047'],
+  gradientVialOrange: ['#F97316', '#FB923C'],
+  asphalt: '#2E2E2E',
+  roadYellow: '#F5D142',
+  skyBlue: '#0B2B4C',
+  loginBackground: '#0B2B4C',
+  gradientLoginPrimary: ['#0B2B4C', '#145DA0'],
+  gradientLoginSecondary: ['#F5D142', '#F7C948'],
+  gradientLoginAccent: ['#2E2E2E', '#4B5563'],
+} as const;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const PLAYER_SIZE = 48;
+
+// --- Imágenes del gatito en bicicleta ---
+const bikeSprites = [
+  require('../assets/animations/bike_1.png'),
+  require('../assets/animations/bike_2.png'),
+  require('../assets/animations/bike_3.png'),
+  require('../assets/animations/bike_4.png'),
+];
+
+// --- Estados del juego ---
+enum GameState {
+  Menu = 'menu',
+  Playing = 'playing',
+  Question = 'question',
+  GameOver = 'gameOver',
+  Completed = 'completed',
+  Paused = 'paused',
+}
+
+// --- Constantes del juego ---
+const QUESTION_DISTANCE = 250; // Pregunta cada 250m
+const MAX_COLLISIONS = 3; // 3 choques -> perder
+const MAX_WRONG_ANSWERS = 3; // 3 errores -> perder
+const SPEED_MPS = 20;
+
+// --- Tipos ---
+type Obstacle = { id: string; x: number; y: number; width: number; height: number; emoji: string };
+type Option = { id: string; text: string; isCorrect: boolean; feedback: string };
+type Question = { id: number; title: string; scenario: string; options: Option[] };
+
+// Definir interfaces
+interface Particle {
   id: string;
-  text: string;
-  isCorrect: boolean;
-  feedback: string;
-};
+  x: number;
+  y: number;
+  opacity: Animated.Value;
+  emoji?: string; // Opcional para partículas especiales como colisiones
+}
 
-type Question = {
-  id: number;
-  title: string;
-  scenario: string;
-  options: Option[];
-};
-
-type MovingObstacle = {
+interface MovingObstacle {
   id: string;
   x: number;
   y: number;
   width: number;
   height: number;
   speed: number;
-  type: 'car' | 'truck' | 'stone' | 'animal' | 'bicycle' | 'bus';
+  type: 'car' | 'truck' | 'stone' | 'animal';
   emoji: string;
-};
+}
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const PLAYER_SIZE = 48;
-const ROAD_HEIGHT = SCREEN_HEIGHT * 0.7;
+const OBSTACLE_TYPES = [
+  { type: 'car' as const, emoji: '🚗', width: 60, height: 40, speed: 1.2 },
+  { type: 'truck' as const, emoji: '🚛', width: 80, height: 50, speed: 0.8 },
+  { type: 'stone' as const, emoji: '🪨', width: 45, height: 45, speed: 0 },
+  { type: 'animal' as const, emoji: '🐈', width: 50, height: 50, speed: 0.4 },
+];
 
-// Preguntas más avanzadas para nivel 2
-const QUESTIONS_LEVEL2: Question[] = [
+// --- Preguntas ---
+// Nivel 2 tiene las mismas preguntas básicas que el nivel 1 pero con dificultad aumentada gradualmente
+const QUESTIONS: Question[] = [
   {
     id: 1,
-    title: '¿Qué significa la señal de "PROHIBIDO ADELANTAR"?',
-    scenario: 'Ves una señal con dos autos uno detrás del otro en rojo.',
+    title: 'Semáforo en Rojo',
+    scenario: 'Te acercas a un cruce y hay un semáforo en rojo. ¿Qué haces?',
     options: [
-      { id: 'a', text: 'Puedes adelantar con cuidado', isCorrect: false, feedback: 'No, esta señal indica que está prohibido adelantar.' },
-      { id: 'b', text: 'No puedes adelantar vehículos', isCorrect: true, feedback: '¡Correcto! Esta señal prohíbe adelantar a otros vehículos.' },
-      { id: 'c', text: 'Solo puedes adelantar bicicletas', isCorrect: false, feedback: 'No, prohíbe adelantar cualquier vehículo.' },
-      { id: 'd', text: 'Significa que hay obras adelante', isCorrect: false, feedback: 'No, esta señal específicamente prohíbe adelantar.' },
+      { id: '1A', text: 'Me detengo y espero a que cambie a verde', isCorrect: true, feedback: '¡Correcto! Siempre respeta las señales de tránsito.' },
+      { id: '1B', text: 'Miro a ambos lados y cruzo si no vienen autos', isCorrect: false, feedback: 'Incorrecto. Debes respetar el semáforo sin importar el tráfico.' },
+      { id: '1C', text: 'Acelero para pasar antes de que lleguen otros vehículos', isCorrect: false, feedback: 'Peligroso! Nunca ignores las señales de tránsito.' },
     ],
   },
   {
     id: 2,
-    title: '¿Cuál es la velocidad máxima en zona urbana?',
-    scenario: 'Conduces por una calle de la ciudad con edificios alrededor.',
+    title: 'Paso Peatonal',
+    scenario: 'Ves a una persona esperando cruzar en el paso cebra. ¿Qué haces?',
     options: [
-      { id: 'a', text: '30 km/h', isCorrect: false, feedback: 'No, en zona urbana el límite es más alto.' },
-      { id: 'b', text: '50 km/h', isCorrect: true, feedback: '¡Correcto! La velocidad máxima en zona urbana es 50 km/h.' },
-      { id: 'c', text: '70 km/h', isCorrect: false, feedback: 'No, esa velocidad es para vías rápidas.' },
-      { id: 'd', text: 'No hay límite', isCorrect: false, feedback: 'Siempre hay límites de velocidad establecidos.' },
+      { id: '2A', text: 'Me detengo y le cedo el paso', isCorrect: true, feedback: '¡Excelente! Los peatones tienen prioridad en los cruces.' },
+      { id: '2B', text: 'Toco la bocina para que se apure', isCorrect: false, feedback: 'Incorrecto. Debes ceder el paso pacientemente.' },
+      { id: '2C', text: 'Paso rápido antes de que empiece a cruzar', isCorrect: false, feedback: 'Riesgoso! Siempre cede el paso a los peatones.' },
     ],
   },
   {
     id: 3,
-    title: '¿Qué debes hacer en una rotonda?',
-    scenario: 'Te acercas a una intersección circular con varios autos circulando.',
+    title: 'Obstáculo en la Vía',
+    scenario: 'Hay una piedra grande en tu carril. ¿Cuál es la mejor acción?',
     options: [
-      { id: 'a', text: 'Detenerte completamente', isCorrect: false, feedback: 'No es necesario detenerte si puedes incorporarte.' },
-      { id: 'b', text: 'Ceder el paso a quienes ya circulan', isCorrect: true, feedback: '¡Correcto! En una rotonda debes ceder el paso a los vehículos que ya están circulando.' },
-      { id: 'c', text: 'Tocar el claxon para entrar', isCorrect: false, feedback: 'No, debes ceder el paso respetuosamente.' },
-      { id: 'd', text: 'Acelerar para entrar primero', isCorrect: false, feedback: 'Eso sería peligroso y va contra las normas.' },
+      { id: '3A', text: 'Freno bruscamente y me detengo', isCorrect: false, feedback: 'Peligroso! Podrías causar un accidente por detrás.' },
+      { id: '3B', text: 'Acelero y paso por encima', isCorrect: false, feedback: 'Muy peligroso! Podrías dañar tu vehículo o perder control.' },
+      { id: '3C', text: 'Reduzco velocidad y cambio de carril con precaución', isCorrect: true, feedback: '¡Correcto! Siempre cambia de carril de forma segura.' },
     ],
   },
   {
     id: 4,
-    title: '¿Qué significa la línea amarilla continua?',
-    scenario: 'Ves una línea amarilla sólida en el centro del camino.',
+    title: 'Claxon inesperado',
+    scenario: 'Un auto detrás de ti toca la bocina varias veces. ¿Qué debes hacer?',
     options: [
-      { id: 'a', text: 'Carril de alta velocidad', isCorrect: false, feedback: 'No, indica prohibición de adelantar.' },
-      { id: 'b', text: 'Prohibido cruzar o adelantar', isCorrect: true, feedback: '¡Correcto! La línea continua prohíbe cruzar y adelantar.' },
-      { id: 'c', text: 'Solo para bicicletas', isCorrect: false, feedback: 'No, aplica a todos los vehículos.' },
-      { id: 'd', text: 'Zona de estacionamiento', isCorrect: false, feedback: 'No, indica prohibición de maniobras.' },
+      { id: '4A', text: 'Freno de golpe y salgo a la calle para que me rebasen.', isCorrect: false, feedback: 'Peligroso. Podrías causar un accidente.' },
+      { id: '4B', text: 'Mantengo mi carril en la ciclovía sin perder la calma.', isCorrect: true, feedback: 'Exacto. Mantén tu carril y evita maniobras bruscas.' },
+      { id: '4C', text: 'Señalizo con la mano que continuaré recto y sigo con cuidado.', isCorrect: true, feedback: 'Muy bien, señalizar ayuda a otros a entender tus movimientos.' },
     ],
   },
   {
     id: 5,
-    title: '¿Qué hacer si ves una ambulancia con sirena?',
-    scenario: 'Escuchas la sirena de una ambulancia acercándose por detrás.',
+    title: 'Rotonda final',
+    scenario: 'Llegas a una rotonda. ¿Cuál es la forma correcta de cruzarla en bicicleta?',
     options: [
-      { id: 'a', text: 'Seguir a velocidad normal', isCorrect: false, feedback: 'No, debes facilitar su paso.' },
-      { id: 'b', text: 'Detenerte inmediatamente', isCorrect: false, feedback: 'No necesariamente, solo facilitar su paso.' },
-      { id: 'c', text: 'Detenerte a un lado del camino', isCorrect: true, feedback: '¡Correcto! Debes detenerte a un lado para dejar pasar vehículos de emergencia.' },
-      { id: 'd', text: 'Acelerar para salir del camino', isCorrect: false, feedback: 'No, debes detenerte de forma segura.' },
+      { id: '5A', text: 'Ingreso señalizando y cedo el paso a quienes ya circulan.', isCorrect: true, feedback: 'Excelente. Ceder el paso y señalizar es lo correcto.' },
+      { id: '5B', text: 'Circulo en el sentido de la rotonda a velocidad segura.', isCorrect: true, feedback: 'Perfecto, seguir el flujo evita choques.' },
+      { id: '5C', text: 'Cruzo en diagonal por el centro para terminar rápido.', isCorrect: false, feedback: 'Riesgoso. Podrías ser atropellado.' },
     ],
   },
 ];
 
-export default function BicycleGameLevel2() {
+// --- Función de sonido mejorada (módulo nivel) ---
+let soundObjects: Map<string, Audio.Sound> = new Map();
+let backgroundMusic: Audio.Sound | null = null;
+
+// Contador único para partículas para evitar keys duplicadas
+let particleCounter = 0;
+
+export const playSound = async (type: 'collision' | 'correct' | 'wrong') => {
+  // Define los sonidos (fuera del try para acceso en catch)
+  const sounds = {
+    collision: require('../assets/sounds/crash.mp3'),
+    correct: require('../assets/sounds/success.mp3'),
+    wrong: require('../assets/sounds/error.mp3'),
+  };
+
+  try {
+    const soundKey = type;
+
+    // Limpiar sonido anterior del mismo tipo si existe
+    const existingSound = soundObjects.get(soundKey);
+    if (existingSound) {
+      try {
+        await existingSound.unloadAsync();
+      } catch (e) {
+        console.warn('Error descargando sonido anterior:', e);
+      }
+      soundObjects.delete(soundKey);
+    }
+
+    // Crear y cargar el nuevo sonido
+    const { sound } = await Audio.Sound.createAsync(sounds[type], {
+      shouldPlay: true,
+      volume: 0.5, // Reducir volumen para evitar distorsión
+    });
+
+    soundObjects.set(soundKey, sound);
+
+    // Configurar liberación automática cuando termine
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish && !status.isLooping) {
+        sound.unloadAsync().catch(console.warn);
+        soundObjects.delete(soundKey);
+      }
+    });
+
+    // Reproducir el sonido
+    await sound.playAsync();
+
+    // Liberar después de 1.5 segundos como respaldo
+    setTimeout(() => {
+      if (soundObjects.has(soundKey)) {
+        sound.unloadAsync().catch(console.warn);
+        soundObjects.delete(soundKey);
+      }
+    }, 1500);
+
+  } catch (err) {
+    console.warn(`Error reproduciendo sonido ${type}:`, err);
+    // Intentar con configuración alternativa
+    try {
+      const { sound: fallbackSound } = await Audio.Sound.createAsync(
+        sounds[type],
+        { shouldPlay: true, volume: 0.3 }
+      );
+      await fallbackSound.playAsync();
+      setTimeout(() => fallbackSound.unloadAsync(), 2000);
+    } catch (fallbackErr) {
+      console.error(`Error fallback sonido ${type}:`, fallbackErr);
+    }
+  }
+};
+
+// --- Función para música de fondo ---
+export const playBackgroundMusic = async () => {
+  try {
+    // Detener música anterior si existe
+    if (backgroundMusic) {
+      await backgroundMusic.unloadAsync();
+      backgroundMusic = null;
+    }
+
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/sounds/background.mp3'),
+      {
+        shouldPlay: true,
+        isLooping: true, // Música en loop infinito
+        volume: 0.2, // Volumen bajo (20%) para no interferir con efectos de sonido
+      }
+    );
+
+    backgroundMusic = sound;
+  } catch (err) {
+    console.warn('⚠️ Música de fondo no disponible. Para agregar música:');
+    console.warn('1. Agrega un archivo background.mp3 a assets/sounds/');
+    console.warn('2. Puede ser cualquier canción instrumental');
+  }
+};
+
+export const stopBackgroundMusic = async () => {
+  try {
+    if (backgroundMusic) {
+      await backgroundMusic.unloadAsync();
+      backgroundMusic = null;
+    }
+  } catch (err) {
+    console.warn('Error deteniendo música de fondo:', err);
+  }
+};
+
+// --- Componente principal ---
+function BicycleGameScreen() {
   const router = useRouter();
+  // Estados básicos del juego
+  const [gameState, setGameState] = useState<GameState>(GameState.Menu);
+  const [score, setScore] = useState(0);
+  const [distance, setDistance] = useState(0);
+  const [collisionCount, setCollisionCount] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [questionsTriggered, setQuestionsTriggered] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [obstacleSpeedMultiplier, setObstacleSpeedMultiplier] = useState(1);
+
+  // Estados del jugador
+  const playerX = useRef(new Animated.Value(SCREEN_WIDTH / 2 - PLAYER_SIZE / 2));
+  const playerY = useRef(new Animated.Value(SCREEN_HEIGHT * 0.8));
 
   // Estados del juego
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'question' | 'gameOver' | 'victory'>('menu');
-  const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
   const [obstacles, setObstacles] = useState<MovingObstacle[]>([]);
-  const [gameSpeed, setGameSpeed] = useState(2);
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackStatus, setFeedbackStatus] = useState<'success' | 'error' | 'neutral'>('neutral');
+  const [showCollisionModal, setShowCollisionModal] = useState(false);
+  const [collisionText, setCollisionText] = useState<string>('¡Colisión! Ten cuidado en la vía.');
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [playerFrame, setPlayerFrame] = useState(0);
+  const [flashVisible, setFlashVisible] = useState(false);
+  const [isPedaling, setIsPedaling] = useState(false);
+  const [playerTilt, setPlayerTilt] = useState(0);
+  const [clouds, setClouds] = useState<{id: string, x: number, y: number, speed: number}[]>([]);
+  const flashOpacity = useRef(new Animated.Value(0)).current;
 
-  // Refs para animaciones
-  const playerX = useRef(new Animated.Value(SCREEN_WIDTH / 2 - PLAYER_SIZE / 2)).current;
-  const currentPlayerX = useRef(SCREEN_WIDTH / 2 - PLAYER_SIZE / 2);
+  // Refs para el loop del juego
+  const gameLoopRef = useRef<number | null>(null);
+  const lastQuestionDistance = useRef(0);
+  const lastFrameTime = useRef<number | null>(null);
+  const roadOffsetRef = useRef(0);
+  const lastCollisionAt = useRef<number>(0);
+  const invulnerableUntil = useRef<number>(0);
+
   const roadOffset = useRef(new Animated.Value(0)).current;
+  const bgOffset = useRef(new Animated.Value(0)).current;
+  const backgroundOffset = useRef(new Animated.Value(0)).current;
+  const cloudOffsets = useRef<{[key: string]: Animated.Value}>({}).current;
 
-  // Configuración del jugador
-  const playerPanResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-        if (gameState !== 'playing') return;
+  const baseSpeed = 3; // Reducido de 4 para comenzar más lento
+  const speed = baseSpeed + Math.min(score * 0.15, 2); // Máximo aumento de 2 puntos de velocidad
+  const spawnChance = Math.min(0.01 + (distance / 1000) * 0.002, 0.06); // Basado en distancia en lugar de score, máximo 6%
 
-        const newX = Math.max(0, Math.min(SCREEN_WIDTH - PLAYER_SIZE, gestureState.x0 + gestureState.dx));
-        playerX.setValue(newX);
-        currentPlayerX.current = newX;
-      },
-      onPanResponderRelease: () => {
-        // El jugador se mueve automáticamente cuando se suelta
-      },
-    })
-  ).current;
-
-  // Función para generar obstáculos más difíciles (nivel 2)
-  const generateObstacle = useCallback((): MovingObstacle => {
-    const types: Array<MovingObstacle['type']> = ['car', 'truck', 'bus', 'bicycle', 'stone', 'animal'];
-    const type = types[Math.floor(Math.random() * types.length)];
-
-    const emojis = {
-      car: '🚗',
-      truck: '🚛',
-      bus: '🚌',
-      bicycle: '🚲',
-      stone: '🪨',
-      animal: '🐕'
-    };
-
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      x: Math.random() * (SCREEN_WIDTH - 60),
-      y: -100,
-      width: 60,
-      height: 60,
-      speed: gameSpeed + Math.random() * 2, // Más velocidad para nivel 2
-      type,
-      emoji: emojis[type],
-    };
-  }, [gameSpeed]);
-
-  // Efecto para animar la carretera
+  // Animación del jugador
   useEffect(() => {
-    if (gameState !== 'playing') return;
+    const interval = setInterval(() => setPlayerFrame(prev => (prev + 1) % bikeSprites.length), 120);
+    return () => clearInterval(interval);
+  }, []);
 
-    const roadAnimation = Animated.loop(
-      Animated.timing(roadOffset, {
-        toValue: -100,
-        duration: 2000 / gameSpeed,
-        useNativeDriver: true,
-      })
+  // Inicializar nubes del fondo - Pequeñas como antes
+  useEffect(() => {
+    const initialClouds = Array.from({ length: 5 }, (_, i) => {
+      const cloudId = `cloud-${i}`;
+      // Crear Animated.Value para posición X de cada nube
+      cloudOffsets[cloudId] = new Animated.Value(Math.random() * SCREEN_WIDTH);
+      return {
+        id: cloudId,
+        x: Math.random() * SCREEN_WIDTH,
+        y: Math.random() * (SCREEN_HEIGHT * 0.15) + 2, // Área más pequeña como antes (15% vs 25%)
+        speed: (Math.random() * 0.5 + 0.1), // Velocidad normal como antes
+      };
+    });
+    setClouds(initialClouds);
+  }, []);
+
+  // Animación de pedaleo cuando el jugador se mueve
+  useEffect(() => {
+    if (gameState === GameState.Playing) {
+      const pedalInterval = setInterval(() => {
+        setIsPedaling(prev => !prev);
+      }, 300); // Cambiar cada 300ms
+      return () => clearInterval(pedalInterval);
+    }
+  }, [gameState]);
+
+  // Animación de balanceo cuando gira
+  const handlePlayerMovement = useCallback((gestureState: any) => {
+    const deltaX = gestureState.dx || 0;
+    const tiltAmount = Math.min(Math.abs(deltaX) * 0.1, 5); // Máximo 5 grados de inclinación
+    setPlayerTilt(deltaX > 0 ? tiltAmount : -tiltAmount);
+  }, []);
+
+  // --- Loop principal ---
+  const gameLoop = useCallback(() => {
+    if (gameState !== GameState.Playing) return;
+
+    const now = Date.now();
+    const last = lastFrameTime.current ?? now;
+    const dt = (now - last) / 1000; // seconds
+    lastFrameTime.current = now;
+
+    // Update distance and score (5 m/s)
+    setDistance(prev => prev + SPEED_MPS * dt);
+    setScore(prev => prev + Math.floor(10 * dt)); // score ticks
+
+    // Animate road dashed lines
+    roadOffsetRef.current = (roadOffsetRef.current + 200 * dt) % (SCREEN_HEIGHT);
+
+    // Update obstacles (slower descent)
+    setObstacles(prev =>
+      prev
+        .map(obstacle => ({
+          ...obstacle,
+          y: obstacle.y + (SPEED_MPS * 16) * dt + obstacle.speed * 6,
+        }))
+        .filter(obstacle => obstacle.y < SCREEN_HEIGHT + 100)
     );
-    roadAnimation.start();
 
-    return () => {
-      roadAnimation.stop();
-    };
-  }, [gameState, gameSpeed, roadOffset]);
+    // Spawn new obstacles
+    if (Math.random() < spawnChance) {
+      const obstacleType = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+      const newObstacle: MovingObstacle = {
+        id: String(Date.now()),
+        x: Math.random() * (SCREEN_WIDTH - obstacleType.width),
+        y: -obstacleType.height,
+        width: obstacleType.width,
+        height: obstacleType.height,
+        speed: obstacleType.speed + obstacleSpeedMultiplier * 0.3, // Más gradual que * 0.5
+        type: obstacleType.type,
+        emoji: obstacleType.emoji,
+      };
+      setObstacles(prev => [...prev, newObstacle]);
+    }
 
-  // Efecto para generar obstáculos
-  useEffect(() => {
-    if (gameState !== 'playing') return;
+    // Animate road dashed lines
+    roadOffsetRef.current = (roadOffsetRef.current + 200 * dt) % (SCREEN_HEIGHT);
 
-    const obstacleInterval = setInterval(() => {
-      setObstacles(prev => [...prev, generateObstacle()]);
-    }, 1500 - (gameSpeed * 100)); // Más obstáculos en nivel 2
+    // Fondo y carretera - Sin animaciones del fondo para eliminar titileo
+    Animated.timing(roadOffset, {
+      toValue: 30,
+      duration: 150,
+      useNativeDriver: false
+    }).start(() =>
+      roadOffset.setValue(0)
+    );
 
-    return () => clearInterval(obstacleInterval);
-  }, [gameState, generateObstacle, gameSpeed]);
+    // Animar nubes del fondo dinámico - Dirección derecha a izquierda con parallax
+    clouds.forEach(cloud => {
+      const currentX = cloudOffsets[cloud.id];
+      if (currentX) {
+        // Calcular nueva posición con parallax (nubes se mueven más lento que la carretera)
+        const parallaxSpeed = cloud.speed * 0.3; // Factor de parallax para nubes
+        const newX = (currentX as any)._value - parallaxSpeed * dt * 60; // 60 FPS aproximado
 
-  // Efecto para mover obstáculos y detectar colisiones
-  useEffect(() => {
-    if (gameState !== 'playing' || obstacles.length === 0) return;
-
-    const moveInterval = setInterval(() => {
-      setObstacles(prev => {
-        const newObstacles = prev
-          .map(obstacle => ({
-            ...obstacle,
-            y: obstacle.y + obstacle.speed,
-          }))
-          .filter(obstacle => obstacle.y < SCREEN_HEIGHT);
-
-        // Detectar colisiones
-        const playerCurrentX = currentPlayerX.current;
-        const collision = newObstacles.some(obstacle => {
-          return (
-            obstacle.y + obstacle.height > ROAD_HEIGHT &&
-            obstacle.y < ROAD_HEIGHT + PLAYER_SIZE &&
-            obstacle.x < playerCurrentX + PLAYER_SIZE &&
-            obstacle.x + obstacle.width > playerCurrentX
-          );
-        });
-
-        if (collision) {
-          setLives(prev => {
-            const newLives = prev - 1;
-            if (newLives <= 0) {
-              setGameState('gameOver');
-            }
-            return newLives;
-          });
-          return newObstacles.filter(obstacle => {
-            // Remover el obstáculo que causó la colisión
-            return !(
-              obstacle.y + obstacle.height > ROAD_HEIGHT &&
-              obstacle.y < ROAD_HEIGHT + PLAYER_SIZE &&
-              obstacle.x < playerCurrentX + PLAYER_SIZE &&
-              obstacle.x + obstacle.width > playerCurrentX
-            );
-          });
+        if (newX < -100) {
+          // Reset nube cuando sale de pantalla
+          currentX.setValue(SCREEN_WIDTH + 50);
+        } else {
+          currentX.setValue(newX);
         }
+      }
+    });
 
-        return newObstacles;
-      });
-    }, 50);
+    // Efecto parallax para fondo (más sutil que carretera)
+    const bgParallaxSpeed = speed * 0.1; // Fondo se mueve muy lentamente
+    backgroundOffset.setValue((backgroundOffset as any)._value + bgParallaxSpeed * dt);
 
-    return () => clearInterval(moveInterval);
-  }, [gameState, obstacles.length, playerX]);
+    // Colisiones
+    checkCollision();
 
-  const startGame = () => {
-    setGameState('playing');
-    setScore(0);
-    setLives(3);
-    setObstacles([]);
-    setGameSpeed(2);
+    // Pregunta cada 250 m -
+    if (distance >= (questionsTriggered + 1) * QUESTION_DISTANCE && questionsTriggered < 5) {
+      const nextIndex = questionsTriggered;
+      const question = QUESTIONS[nextIndex];
+      if (question) {
+        // Detener inmediatamente el game loop
+        if (gameLoopRef.current) {
+          cancelAnimationFrame(gameLoopRef.current);
+          gameLoopRef.current = null;
+        }
+        setCurrentQuestion(question);
+        setGameState(GameState.Question);
+        lastQuestionDistance.current = (questionsTriggered + 1) * QUESTION_DISTANCE;
+        lastFrameTime.current = null;
+        setQuestionsTriggered(prev => prev + 1);
+      }
+    }
 
-    // Posicionar al jugador en el centro
-    playerX.setValue(SCREEN_WIDTH / 2 - PLAYER_SIZE / 2);
+    // Increase level - Más gradual basado en distancia
+    const newLevel = Math.floor(distance / 600) + 1; // Aumenta cada 600m en lugar de 400m
+    if (newLevel > level) {
+      setLevel(newLevel);
+      setObstacleSpeedMultiplier(prev => prev + 0.2); // Aumenta gradualmente la velocidad de obstáculos
+    }
+
+    // Partículas de polvo - Más frecuentes pero no excesivas (20% de probabilidad)
+    if (Math.random() < 0.2) {
+      generateParticles();
+    }
+
+    // Generar partículas de velocidad detrás de la bicicleta
+    if (Math.random() < 0.3 && speed > baseSpeed) { // Solo cuando va rápido
+      generateSpeedParticles();
+    }
+
+    if (gameState === GameState.Playing) {
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    }
+  }, [gameState, distance, level, score, questionsTriggered, clouds]);
+
+  // --- Partículas ---
+  const generateParticles = () => {
+    const newParticle: Particle = {
+      id: `dust-${particleCounter++}`,
+      x: (playerX.current as any)._value + PLAYER_SIZE / 2 - 4 + Math.random() * 8,
+      y: (playerY.current as any)._value + PLAYER_SIZE,
+      opacity: new Animated.Value(1),
+    };
+    setParticles(prev => [...prev, newParticle]);
+
+    Animated.timing(newParticle.opacity, {
+      toValue: 0,
+      duration: 800,
+      useNativeDriver: true,
+    }).start(() => {
+      setParticles(prev => prev.filter(p => p.id !== newParticle.id));
+    });
   };
 
-  const showRandomQuestion = () => {
-    if (gameState !== 'playing') return;
+  // --- Partículas de velocidad mejoradas ---
+  const generateSpeedParticles = () => {
+    const playerXPos = (playerX.current as any)._value;
+    const playerYPos = (playerY.current as any)._value;
 
-    const randomQuestion = QUESTIONS_LEVEL2[Math.floor(Math.random() * QUESTIONS_LEVEL2.length)];
-    setCurrentQuestion(randomQuestion);
-    setGameState('question');
-    setSelectedAnswer(null);
-    setShowFeedback(false);
-  };
+    // Crear múltiples partículas detrás de la rueda trasera
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        const particle: Particle = {
+          id: `speed-${particleCounter++}`,
+          x: playerXPos + PLAYER_SIZE / 2 - Math.random() * 20 - 10, // Detrás de la bicicleta
+          y: playerYPos + PLAYER_SIZE - Math.random() * 10,
+          opacity: new Animated.Value(0.9), // Más opaco para ser visible
+        };
+        setParticles(prev => [...prev, particle]);
 
-  const handleAnswer = (optionId: string) => {
-    if (!currentQuestion || showFeedback) return;
-
-    setSelectedAnswer(optionId);
-    setShowFeedback(true);
-
-    setTimeout(() => {
-      const selectedOption = currentQuestion.options.find(opt => opt.id === optionId);
-      if (selectedOption?.isCorrect) {
-        setScore(prev => prev + 10);
-        setGameSpeed(prev => Math.min(prev + 0.5, 4)); // Aumentar velocidad gradualmente
-      } else {
-        setLives(prev => {
-          const newLives = prev - 1;
-          if (newLives <= 0) {
-            setGameState('gameOver');
-          }
-          return newLives;
+        // Animar la partícula hacia atrás y desaparecer
+        Animated.parallel([
+          Animated.timing(particle.opacity, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          // También podemos agregar movimiento hacia atrás aquí si queremos
+        ]).start(() => {
+          setParticles(prev => prev.filter(p => p.id !== particle.id));
         });
-      }
-
-      setGameState('playing');
-      setCurrentQuestion(null);
-    }, 2000);
-  };
-
-  const endGame = async () => {
-    setGameState('gameOver');
-
-    // Guardar progreso si completó el nivel
-    if (score >= 50) {
-      try {
-        await BicycleProgressService.syncWithServer();
-        await awardBicycleLevel2Completion();
-      } catch (error) {
-        console.error('Error saving bicycle level 2 progress:', error);
-      }
+      }, i * 50); // Stagger para efecto más natural
     }
   };
 
-  // Mostrar pregunta cada 15 segundos
-  useEffect(() => {
-    if (gameState !== 'playing') return;
+  const checkCollision = useCallback(() => {
+    if (gameState !== GameState.Playing) return;
+    const now = Date.now();
+    if (now < invulnerableUntil.current) return;
+    const playerCurrentX = (playerX.current as any)._value;
+    const playerCurrentY = (playerY.current as any)._value;
+    const playerRect = {
+      x: playerCurrentX,
+      y: playerCurrentY,
+      width: PLAYER_SIZE,
+      height: PLAYER_SIZE,
+    };
 
-    const questionInterval = setInterval(showRandomQuestion, 15000);
-    return () => clearInterval(questionInterval);
-  }, [gameState]);
+    for (const obstacle of obstacles) {
+      if (
+        playerRect.x < obstacle.x + obstacle.width &&
+        playerRect.x + playerRect.width > obstacle.x &&
+        playerRect.y < obstacle.y + obstacle.height &&
+        playerRect.y + playerRect.height > obstacle.y
+      ) {
+        // Collision detected
+        handleCollision();
+        return;
+      }
+    }
+  }, [obstacles, gameState]);
 
-  // Reiniciar juego
-  const resetGame = () => {
-    setGameState('menu');
-    setScore(0);
-    setLives(3);
-    setObstacles([]);
-    setGameSpeed(2);
-    playerX.setValue(SCREEN_WIDTH / 2 - PLAYER_SIZE / 2);
+  const handleCollision = useCallback(() => {
+    triggerFlash();
+    generateCollisionEffect();
+    playSound('collision');
+    const now = Date.now();
+    // Cooldown of 1s to avoid multiple counts while overlapping
+    if (now - lastCollisionAt.current < 1000) return;
+    lastCollisionAt.current = now;
+    invulnerableUntil.current = now + 2000; // 2s invulnerable
+
+    const newCollisions = collisionCount + 1;
+    setCollisionCount(newCollisions);
+    if (newCollisions >= MAX_COLLISIONS) {
+      setGameState(GameState.GameOver);
+    } else {
+      setCollisionText(`Choques: ${newCollisions}/${MAX_COLLISIONS}`);
+      setShowCollisionModal(true);
+      setGameState(GameState.Paused);
+      // Nudge player slightly to reduce overlap
+      const currentY = (playerY.current as any)._value ?? SCREEN_HEIGHT * 0.8;
+      playerY.current.setValue(Math.max(SCREEN_HEIGHT * 0.2, currentY - 40));
+      lastFrameTime.current = null;
+    }
+  }, [collisionCount]);
+
+  // --- Efecto de flash y vibración ---
+  const triggerFlash = () => {
+    setFlashVisible(true);
+    Animated.sequence([
+      Animated.timing(flashOpacity, { toValue: 0.6, duration: 100, useNativeDriver: true }),
+      Animated.timing(flashOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setFlashVisible(false));
+    Vibration.vibrate(200);
   };
 
-  if (gameState === 'menu') {
-    return (
-      <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
-        <View style={styles.menuContainer}>
-          <Text style={styles.title}>🚲 Aventura en Bicicleta - Nivel 2</Text>
-          <Text style={styles.subtitle}>¡Desafíos más avanzados te esperan!</Text>
+  // --- Efecto de emojis en colisión ---
+  const generateCollisionEffect = () => {
+    const centerX = (playerX.current as any)._value + PLAYER_SIZE / 2;
+    const centerY = (playerY.current as any)._value + PLAYER_SIZE / 2;
+    const emojis = ['💥', '⚠️', '🚧', '🔥'];
 
-          <View style={styles.instructionsCard}>
-            <Text style={styles.instructionsTitle}>🚲 Instrucciones Nivel 2:</Text>
-            <Text style={styles.instruction}>• Evita obstáculos más rápidos y complejos</Text>
-            <Text style={styles.instruction}>• Responde preguntas avanzadas de educación vial</Text>
-            <Text style={styles.instruction}>• Preguntas aparecen cada 15 segundos</Text>
-            <Text style={styles.instruction}>• ¡Mayor velocidad = más puntos!</Text>
+    emojis.forEach((emoji, index) => {
+      const particle = {
+        id: `collision-${particleCounter++}`,
+        x: centerX + (Math.random() - 0.5) * 60,
+        y: centerY + (Math.random() - 0.5) * 60,
+        opacity: new Animated.Value(1),
+        emoji,
+      };
+      setParticles(prev => [...prev, particle]);
+
+      Animated.timing(particle.opacity, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start(() => setParticles(prev => prev.filter(p => p.id !== particle.id)));
+    });
+  };
+
+  // --- Gradiente dinámico por nivel ---
+  const getLevelGradient = () => {
+    switch (level) {
+      case 1: return ['#4facfe', '#00f2fe'];
+      case 2: return ['#43e97b', '#38f9d7'];
+      case 3: return ['#fa709a', '#fee140'];
+      case 4: return ['#fddb92', '#d1fdff'];
+      default: return ['#a1c4fd', '#c2e9fb'];
+    }
+  };
+
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => gameState === GameState.Playing,
+        onMoveShouldSetPanResponder: () => gameState === GameState.Playing,
+        onPanResponderMove: (_, gestureState) => {
+          const newX = Math.max(0, Math.min(SCREEN_WIDTH - PLAYER_SIZE, gestureState.moveX - PLAYER_SIZE / 2));
+          const newY = Math.max(SCREEN_HEIGHT * 0.2, Math.min(SCREEN_HEIGHT * 0.9 - PLAYER_SIZE, gestureState.moveY - PLAYER_SIZE / 2));
+          playerX.current.setValue(newX);
+          playerY.current.setValue(newY);
+
+          // Actualizar inclinación de la bicicleta según movimiento horizontal
+          const deltaX = gestureState.dx || 0;
+          const tiltAmount = Math.min(Math.abs(deltaX) * 0.2, 15); // Más exagerado - máximo 15 grados
+          setPlayerTilt(deltaX > 0 ? tiltAmount : -tiltAmount);
+        },
+      }),
+    [gameState]
+  );
+
+  // Función para reinicializar nubes
+  const reinitializeClouds = useCallback(() => {
+    const initialClouds = Array.from({ length: 5 }, (_, i) => {
+      const cloudId = `cloud-${i}`;
+      // Crear Animated.Value para posición X de cada nube
+      cloudOffsets[cloudId] = new Animated.Value(Math.random() * SCREEN_WIDTH);
+      return {
+        id: cloudId,
+        x: Math.random() * SCREEN_WIDTH,
+        y: Math.random() * (SCREEN_HEIGHT * 0.15) + 2, // Área más pequeña como antes
+        speed: (Math.random() * 0.5 + 0.1), // Velocidad normal como antes
+      };
+    });
+    setClouds(initialClouds);
+  }, []);
+
+  // Start Game
+  const startGame = useCallback(() => {
+    setGameState(GameState.Playing);
+    setScore(0);
+    setDistance(0);
+    setCollisionCount(0);
+    setWrongCount(0);
+    setCorrectCount(0);
+    setQuestionsTriggered(0);
+    setLevel(1);
+    setObstacleSpeedMultiplier(1); // Reiniciar velocidad de obstáculos
+    setObstacles([]);
+    setCurrentQuestion(null);
+    setSelectedOptionIds([]);
+    setFeedback(null);
+    setFeedbackStatus('neutral');
+    setShowCollisionModal(false);
+    lastQuestionDistance.current = 0;
+    lastFrameTime.current = null;
+    roadOffsetRef.current = 0;
+    playerX.current.setValue(SCREEN_WIDTH / 2 - PLAYER_SIZE / 2);
+    playerY.current.setValue(SCREEN_HEIGHT * 0.8);
+    particleCounter = 0; // Reiniciar contador de partículas
+
+    // Reinicializar nubes para asegurar que aparezcan correctamente
+    reinitializeClouds();
+
+    // Reinicializar animaciones parallax
+    backgroundOffset.setValue(0);
+    roadOffset.setValue(0);
+  }, []); // Close startGame function here
+
+  // Reset Game
+  const resetGame = useCallback(() => {
+    setGameState(GameState.Menu);
+    setCurrentQuestion(null);
+    setSelectedOptionIds([]);
+    setFeedback(null);
+    setFeedbackStatus('neutral');
+  }, []);
+
+  // Question Handlers
+  const toggleOption = useCallback((optionId: string) => {
+    setSelectedOptionIds(prev =>
+      prev.includes(optionId) ? prev.filter(id => id !== optionId) : [...prev, optionId]
+    );
+  }, []);
+
+  const handleConfirmAnswer = useCallback(() => {
+    if (!currentQuestion || selectedOptionIds.length === 0) {
+      Alert.alert('Error', 'Selecciona al menos una respuesta');
+      return;
+    }
+
+    const selectedOptions = currentQuestion.options.filter(option =>
+      selectedOptionIds.includes(option.id)
+    );
+    const correctOptions = currentQuestion.options.filter(option => option.isCorrect);
+    const isCorrect = selectedOptions.length === correctOptions.length &&
+      selectedOptions.every(option => option.isCorrect);
+
+    if (isCorrect) {
+      setFeedbackStatus('success');
+      setFeedback('¡Correcto! Continúa avanzando.');
+      setScore(prev => prev + 100);
+      setCorrectCount(prev => prev + 1);
+
+      // 🔊 Reproducir sonido de respuesta correcta
+      playSound('correct');
+
+      setTimeout(() => {
+        setCurrentQuestion(null);
+        setSelectedOptionIds([]);
+        setFeedback(null);
+        setFeedbackStatus('neutral');
+        // Win only after answering the 5th question correctly
+        lastFrameTime.current = null;
+        const newState = (correctCount + 1) >= 5 && questionsTriggered >= 5
+          ? GameState.Completed
+          : GameState.Playing;
+        setGameState(newState);
+
+        // Reiniciar el game loop si volvemos a Playing
+        if (newState === GameState.Playing) {
+          gameLoopRef.current = requestAnimationFrame(gameLoop);
+        }
+      }, 2000);
+    } else {
+      const newWrong = wrongCount + 1;
+      setWrongCount(newWrong);
+      setFeedbackStatus('error');
+      setFeedback(selectedOptions[0]?.feedback || 'Respuesta incorrecta. Intenta de nuevo.');
+
+      // 🔊 Reproducir sonido de respuesta incorrecta
+      playSound('wrong');
+
+      if (newWrong >= MAX_WRONG_ANSWERS) {
+        setTimeout(() => {
+          setGameState(GameState.GameOver);
+        }, 2000);
+      } else {
+        setTimeout(() => {
+          setSelectedOptionIds([]);
+          setFeedback(null);
+          setFeedbackStatus('neutral');
+          lastFrameTime.current = null;
+          // Reiniciar el game loop para continuar jugando
+          gameLoopRef.current = requestAnimationFrame(gameLoop);
+        }, 2000);
+      }
+    }
+  }, [currentQuestion, selectedOptionIds, wrongCount, correctCount, questionsTriggered, gameLoop]);
+
+  // Game Loop Effect
+  useEffect(() => {
+    if (gameState === GameState.Playing) {
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    } else {
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+    }
+
+    return () => {
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+    };
+  }, [gameState, gameLoop]);
+
+  // Música de fondo - se reproduce cuando el juego está activo
+  useEffect(() => {
+    if (gameState === GameState.Playing) {
+      // Iniciar música de fondo cuando comienza el juego
+      playBackgroundMusic();
+    } else {
+      // Detener música de fondo cuando no está jugando
+      stopBackgroundMusic();
+    }
+
+    // Cleanup: detener música cuando el componente se desmonte
+    return () => {
+      stopBackgroundMusic();
+    };
+  }, [gameState]);
+
+  return (
+    <LinearGradient colors={getLevelGradient() as [string, string, ...string[]]} style={styles.container}>
+      {/* Fondo dinámico con cielo y nubes - AHORA VISIBLE */}
+      <View style={styles.dynamicBackground}>
+        {/* Nubes animadas con Animated.View independientes */}
+        {clouds.map(cloud => (
+          <Animated.View
+            key={cloud.id}
+            style={[
+              styles.cloud,
+              {
+                left: cloudOffsets[cloud.id] || 0,
+                top: cloud.y,
+                transform: [
+                  { scale: 0.8 + Math.sin(Date.now() * 0.001 + cloud.id.length) * 0.2 },
+                ],
+              }
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Fondo con gradiente - Transición suave desde nubes hasta carretera */}
+      <Animated.View
+        style={[
+          styles.background,
+          {
+            transform: [{ translateY: backgroundOffset }]
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={[
+            'rgba(135, 206, 235, 0.9)', // Color cielo más intenso arriba
+            'rgba(136, 192, 208, 0.7)', // Transición suave
+            'rgba(136, 192, 208, 0.3)', // Más claro hacia abajo
+            'rgba(136, 192, 208, 0)'    // Transparente al final
+          ]}
+          style={StyleSheet.absoluteFillObject}
+          locations={[0, 0.3, 0.7, 1]}
+        />
+      </Animated.View>
+
+      {/* Road con efecto 3D */}
+      <Animated.View style={[styles.road, { transform: [{ translateY: roadOffset }] }]}>
+        {Array.from({ length: 12 }).map((_, i) => {
+          const segmentHeight = 30;
+          const gap = 40;
+          const total = segmentHeight + gap;
+          const top = (i * total + roadOffsetRef.current) % SCREEN_HEIGHT;
+          const scale = 0.3 + (top / SCREEN_HEIGHT) * 0.7;
+          return <View key={i} style={[styles.dash, { top, left: SCREEN_WIDTH / 2 - 2 * scale, transform: [{ scaleX: scale }] }]} />;
+        })}
+      </Animated.View>
+
+      {/* Partículas de polvo - Más frecuentes pero no excesivas (20% de probabilidad) */}
+      {particles.map(p => (
+        <Animated.View
+          key={p.id}
+          style={[
+            styles.particle,
+            {
+              left: p.x,
+              top: p.y,
+              opacity: p.opacity,
+              backgroundColor: p.emoji ? 'rgba(255, 255, 0, 0.8)' : 'rgba(200, 200, 200, 0.9)', // Más visible
+              width: p.emoji ? 20 : 8,
+              height: p.emoji ? 20 : 8,
+              borderRadius: p.emoji ? 10 : 4,
+            }
+          ]}
+        >
+          {p.emoji ? <Text style={{ fontSize: 16 }}>{p.emoji}</Text> : null}
+        </Animated.View>
+      ))}
+
+      {/* Player */}
+      <Animated.View
+        style={[
+          styles.player,
+          { left: playerX.current, top: playerY.current },
+          { transform: [{ rotate: `${playerTilt}deg` }] }
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <Animated.Image
+          source={bikeSprites[playerFrame]}
+          style={[
+            styles.playerImage,
+            isPedaling && { transform: [{ rotate: '8deg' }, { translateY: -2 }] }
+          ]}
+        />
+      </Animated.View>
+
+      {/* Obstáculos */}
+      {obstacles.map(o => (
+        <View key={o.id} style={[styles.obstacle, { left: o.x, top: o.y, width: o.width, height: o.height }]}>
+          <Text style={{ fontSize: o.width / 2 }}>{o.emoji}</Text>
+        </View>
+      ))}
+
+      {/* HUD mejorado - Diseño de dos filas */}
+      {gameState === GameState.Playing && (
+        <View style={styles.hud}>
+          {/* Primera fila: Puntuación, Distancia, Velocidad, Nivel */}
+          <View style={styles.hudTopRow}>
+            <View style={styles.scoreContainer}>
+              <Text style={styles.scoreLabel}>Puntos</Text>
+              <Text style={styles.scoreValue}>{score}</Text>
+            </View>
+            <View style={styles.distanceContainer}>
+              <Text style={styles.distanceLabel}>Distancia</Text>
+              <Text style={styles.distanceValue}>{Math.floor(distance)}m</Text>
+            </View>
+            <View style={styles.speedContainer}>
+              <Text style={styles.speedLabel}>Velocidad</Text>
+              <Text style={styles.speedValue}>{Math.floor(speed * 3.6)} km/h</Text>
+            </View>
+            <View style={styles.levelContainer}>
+              <Text style={styles.levelLabel}>Nivel</Text>
+              <Text style={styles.levelValue}>{level}</Text>
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.startButton} onPress={startGame}>
-            <LinearGradient colors={colors.gradientSuccess} style={styles.startButtonGradient}>
-              <Text style={styles.startButtonText}>▶️ Comenzar Aventura Nivel 2</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/minigames/level2' as Href)}>
-            <Text style={styles.backButtonText}>← Volver al Nivel 2</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    );
-  }
-
-  if (gameState === 'question' && currentQuestion) {
-    return (
-      <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
-        <View style={styles.questionContainer}>
-          <View style={styles.questionCard}>
-            <Text style={styles.questionTitle}>{currentQuestion.title}</Text>
-            <Text style={styles.questionScenario}>{currentQuestion.scenario}</Text>
-
-            <View style={styles.optionsContainer}>
-              {currentQuestion.options.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.option,
-                    selectedAnswer === option.id && styles.selectedOption,
-                    showFeedback && option.isCorrect && styles.correctOption,
-                    showFeedback && selectedAnswer === option.id && !option.isCorrect && styles.incorrectOption,
-                  ]}
-                  onPress={() => handleAnswer(option.id)}
-                  disabled={showFeedback}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    showFeedback && option.isCorrect && styles.correctText,
-                    showFeedback && selectedAnswer === option.id && !option.isCorrect && styles.incorrectText,
-                  ]}>
-                    {option.text}
-                  </Text>
-                  {showFeedback && selectedAnswer === option.id && (
-                    <Text style={styles.feedbackIcon}>
-                      {option.isCorrect ? '✓' : '✗'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+          {/* Segunda fila: Vidas y Errores */}
+          <View style={styles.hudBottomRow}>
+            <View style={styles.heartsContainer}>
+              <Text style={styles.heartsLabel}>Vidas:</Text>
+              {Array.from({ length: MAX_COLLISIONS }).map((_, i) => (
+                <Text key={i} style={[styles.heart, collisionCount > i && styles.heartUsed]}>❤️</Text>
               ))}
             </View>
+            <View style={styles.wrongCountContainer}>
+              <Text style={styles.wrongCountLabel}>Errores</Text>
+              <Text style={styles.wrongCountValue}>{wrongCount}/{MAX_WRONG_ANSWERS}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
-            {showFeedback && (
-              <View style={styles.feedbackContainer}>
-                <Text style={styles.feedbackText}>
-                  {currentQuestion.options.find(opt => opt.id === selectedAnswer)?.feedback}
-                </Text>
+      {/* Menú */}
+      {gameState === GameState.Menu && (
+        <TouchableOpacity style={styles.startButton} onPress={startGame}>
+          <Text style={styles.startButtonText}>Iniciar Juego Nivel 2 🚴‍♂️</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Question Modal */}
+      <Modal
+        visible={gameState === GameState.Question && currentQuestion !== null}
+        animationType="fade"
+        transparent
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{currentQuestion?.title}</Text>
+            <Text style={styles.modalScenario}>{currentQuestion?.scenario}</Text>
+
+            <View style={styles.modalOptions}>
+              {currentQuestion?.options.map(option => {
+                const isSelected = selectedOptionIds.includes(option.id);
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionSelected,
+                    ]}
+                    onPress={() => toggleOption(option.id)}
+                  >
+                    <View style={styles.modalOptionIndicator}>
+                      <View style={[styles.modalCheckbox, isSelected && styles.modalCheckboxActive]}>
+                        {isSelected && <Text style={styles.modalCheckboxIcon}>✓</Text>}
+                      </View>
+                    </View>
+                    <Text style={styles.modalOptionText}>{option.text}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalConfirmButton}
+              onPress={handleConfirmAnswer}
+            >
+              <Text style={styles.modalConfirmText}>Confirmar Respuesta</Text>
+            </TouchableOpacity>
+
+            {feedback && (
+              <View
+                style={[
+                  styles.modalFeedback,
+                  feedbackStatus === 'success' ? styles.modalFeedbackSuccess : styles.modalFeedbackError,
+                ]}
+              >
+                <Text style={styles.modalFeedbackText}>{feedback}</Text>
               </View>
             )}
           </View>
         </View>
-      </LinearGradient>
-    );
-  }
+      </Modal>
 
-  return (
-    <View style={styles.gameContainer}>
-      {/* Carretera animada */}
-      <Animated.View
-        style={[
-          styles.road,
-          {
-            transform: [{ translateY: roadOffset }],
-          },
-        ]}
-      >
-        <View style={styles.roadLines}>
-          {[...Array(20)].map((_, i) => (
-            <View key={i} style={[styles.roadLine, { top: i * 100 }]} />
-          ))}
-        </View>
-      </Animated.View>
+      {/* Collision Modal */}
+      <Modal visible={showCollisionModal && gameState === GameState.Paused} animationType="fade" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>⚠️ ¡Colisión!</Text>
+            <Text style={styles.modalScenario}>{collisionText}</Text>
 
-      {/* Obstáculos */}
-      {obstacles.map((obstacle) => (
-        <Animated.View
-          key={obstacle.id}
-          style={[
-            styles.obstacle,
-            {
-              left: obstacle.x,
-              top: obstacle.y,
-              transform: [{ translateY: 0 }],
-            },
-          ]}
-        >
-          <Text style={styles.obstacleEmoji}>{obstacle.emoji}</Text>
-        </Animated.View>
-      ))}
+            {/* Información de vidas restantes */}
+            <View style={styles.livesInfo}>
+              <Text style={styles.livesText}>Vidas restantes:</Text>
+              <View style={styles.heartsContainerModal}>
+                {Array.from({ length: MAX_COLLISIONS }).map((_, i) => (
+                  <Text key={i} style={[styles.heartModal, collisionCount > i && styles.heartUsedModal]}>❤️</Text>
+                ))}
+              </View>
+            </View>
 
-      {/* Jugador */}
-      <Animated.View
-        style={[styles.player, { left: playerX }]}
-        {...playerPanResponder.panHandlers}
-      >
-        <Text style={styles.playerEmoji}>🚲</Text>
-      </Animated.View>
-
-      {/* UI del juego */}
-      <View style={styles.gameUI}>
-        <View style={styles.statsContainer}>
-          <View style={styles.stat}>
-            <Text style={styles.statLabel}>Puntuación</Text>
-            <Text style={styles.statValue}>{score}</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statLabel}>Vidas</Text>
-            <Text style={styles.statValue}>{'❤️'.repeat(lives)}</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statLabel}>Velocidad</Text>
-            <Text style={styles.statValue}>{gameSpeed.toFixed(1)}x</Text>
+            <TouchableOpacity
+              style={styles.modalContinueButton}
+              onPress={() => {
+                setShowCollisionModal(false);
+                // Only resume if we are still paused (not game over)
+                lastFrameTime.current = null;
+                lastCollisionAt.current = Date.now();
+                invulnerableUntil.current = Date.now() + 2000; // 2s invulnerabilidad al reanudar
+                setGameState(GameState.Playing);
+              }}
+            >
+              <Text style={styles.modalContinueButtonText}>Continuar</Text>
+            </TouchableOpacity>
           </View>
         </View>
+      </Modal>
 
-        <TouchableOpacity style={styles.endGameButton} onPress={endGame}>
-          <Text style={styles.endGameText}>🏁 Finalizar</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Level Completed Modal */}
+      {gameState === GameState.Completed && (
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>🎉 ¡Felicidades!</Text>
+            <Image source={require('../assets/images/gano.png')} style={styles.modalImage} />
+            <Text style={styles.modalScenario}>
+              Has completado exitosamente el Nivel 2 de Educación Vial.
+            </Text>
+            <Text style={styles.modalScenario}>
+              Respondiste correctamente las 5 preguntas y demostraste tus conocimientos.
+            </Text>
 
-      {/* Pantalla de Game Over */}
-      {gameState === 'gameOver' && (
-        <Modal transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                {score >= 50 ? '🎉 ¡Nivel Completado!' : '💥 ¡Juego Terminado!'}
-              </Text>
-              <Text style={styles.modalScore}>Puntuación Final: {score}</Text>
-              <Text style={styles.modalMessage}>
-                {score >= 50
-                  ? '¡Excelente! Has completado el nivel 2 de bicicleta.'
-                  : 'Sigue practicando para mejorar tu puntuación.'}
-              </Text>
-
-              <TouchableOpacity style={styles.modalButton} onPress={resetGame}>
-                <LinearGradient colors={colors.gradientSuccess} style={styles.modalButtonGradient}>
-                  <Text style={styles.modalButtonText}>🔄 Jugar de Nuevo</Text>
-                </LinearGradient>
+            <View style={styles.completionButtons}>
+              <TouchableOpacity
+                style={styles.completionButton}
+                onPress={() => {
+                  lastFrameTime.current = null;
+                  setGameState(GameState.Playing);
+                }}
+              >
+                <Text style={styles.completionButtonText}>Seguir jugando</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, { marginTop: 10 }]}
-                onPress={() => router.replace('/minigames/level2' as Href)}
+                style={[styles.completionButton, styles.completionButtonSecondary]}
+                onPress={async () => {
+                  try {
+                    // 1. Marcar como completado localmente
+                    await BicycleProgressService.markCompleted();
+
+                    // 2. Intentar sincronizar con el servidor
+                    let syncSuccess = false;
+                    try {
+                      syncSuccess = await BicycleProgressService.syncWithServer();
+
+                      if (syncSuccess) {
+                        // 3. Intentar otorgar recompensas adicionales solo si la sincronización fue exitosa
+                        try {
+                          await awardBicycleLevel2Completion();
+                        } catch (awardError) {
+                          console.warn('⚠️ Could not award level 2 completion, but continuing:', awardError);
+                        }
+                      }
+                    } catch (syncError) {
+                      console.warn('⚠️ Server sync failed, but local progress saved:', syncError);
+                    }
+
+                    // 4. Forzar una nueva carga del progreso al regresar
+                    if (syncSuccess) {
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                  } catch (error) {
+                    console.error('❌ Error in bicycle level 2 completion process:', error);
+                    Alert.alert(
+                      'Error',
+                      'Hubo un error al guardar tu progreso. No te preocupes, tu progreso se guardará localmente y se sincronizará más tarde.',
+                      [{ text: 'Aceptar' }]
+                    );
+                  } finally {
+                    // Navegar de vuelta al menú de nivel 2
+                    router.replace('/minigames/level2' as Href);
+                  }
+                }}
               >
-                <LinearGradient colors={colors.gradientSecondary} style={styles.modalButtonGradient}>
-                  <Text style={styles.modalButtonText}>← Volver al Nivel 2</Text>
-                </LinearGradient>
+                <Text style={[styles.completionButtonText, styles.completionButtonTextSecondary]}>Completar Nivel</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </Modal>
+        </View>
       )}
-    </View>
+
+      {/* Game Over Modal */}
+      {gameState === GameState.GameOver && (
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}> Juego Terminado</Text>
+            <Image source={require('../assets/images/perdio.png')} style={styles.modalImage} />
+            <Text style={styles.modalScenario}>
+              Has alcanzado el límite de errores o choques permitidos.
+            </Text>
+            <Text style={styles.modalScenario}>
+              ¡Sigue practicando para mejorar tus conocimientos!
+            </Text>
+
+            <View style={styles.gameOverButtons}>
+              <TouchableOpacity
+                style={styles.gameOverButton}
+                onPress={startGame}
+              >
+                <Text style={styles.gameOverButtonText}>Reiniciar Juego</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.gameOverButton, styles.gameOverButtonSecondary]}
+                onPress={() => {
+                  // Detener música antes de navegar
+                  stopBackgroundMusic();
+
+                  // Limpiar completamente el estado del juego antes de navegar
+                  setGameState(GameState.Menu);
+                  setScore(0);
+                  setDistance(0);
+                  setCollisionCount(0);
+                  setWrongCount(0);
+                  setCorrectCount(0);
+                  setQuestionsTriggered(0);
+                  setLevel(1);
+                  setObstacleSpeedMultiplier(1);
+                  setObstacles([]);
+                  setCurrentQuestion(null);
+                  setSelectedOptionIds([]);
+                  setFeedback(null);
+                  setFeedbackStatus('neutral');
+                  setShowCollisionModal(false);
+                  lastQuestionDistance.current = 0;
+                  lastFrameTime.current = null;
+                  roadOffsetRef.current = 0;
+                  particleCounter = 0;
+
+                  // Navegar de vuelta al menú de nivel 2 con timestamp para forzar recarga
+                  const timestamp = Date.now();
+                  router.replace(`/minigames/level2?refresh=${timestamp}` as Href);
+                }}
+              >
+                <Text style={[styles.gameOverButtonText, styles.gameOverButtonTextSecondary]}>← Volver al Nivel 2</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+      {/* 🔴 Flash rojo */}
+      {flashVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(255, 0, 0, 0.5)',
+            opacity: flashOpacity,
+          }}
+        />
+      )}
+    </LinearGradient>
   );
-}
+};
+
+export default BicycleGameScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  menuContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.white,
-    textAlign: 'center',
-    marginBottom: 10,
-    textShadowColor: colors.shadowDark as any,
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: colors.white,
-    textAlign: 'center',
-    marginBottom: 30,
-    opacity: 0.9,
-  },
-  instructionsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 30,
-    width: '100%',
-    maxWidth: 400,
-  },
-  instructionsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.white,
-    marginBottom: 12,
-  },
-  instruction: {
-    fontSize: 14,
-    color: colors.white,
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  startButton: {
-    borderRadius: 16,
+  container: { flex: 1 },
+  // Fondo dinámico con cielo y nubes - Área más pequeña como antes
+  dynamicBackground: {
+    position: 'absolute',
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.20, // Restaurado al tamaño original (20% vs 35%)
+    backgroundColor: '#87ceeb',
     overflow: 'hidden',
-    marginBottom: 20,
-    width: '100%',
-    maxWidth: 300,
-  },
-  startButtonGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  startButtonText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  backButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  backButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    textDecorationLine: 'underline',
-  },
-  gameContainer: {
-    flex: 1,
-    backgroundColor: '#87CEEB',
-  },
-  road: {
-    position: 'absolute',
+    zIndex: 15,
     top: 0,
-    left: 0,
-    right: 0,
-    height: ROAD_HEIGHT,
-    backgroundColor: '#696969',
   },
-  roadLines: {
+  cloud: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: 80, // Restaurado al tamaño original (antes era mucho más pequeño)
+    height: 40, // Restaurado al tamaño original (antes era mucho más pequeño)
+    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Un poco menos opaco
+    borderRadius: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25, // Sombra más sutil como antes
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 20, // zIndex más alto para estar por encima de todo
   },
-  roadLine: {
+  background: { position: 'absolute', width: SCREEN_WIDTH, height: SCREEN_HEIGHT, zIndex: 0 },
+  road: { position: 'absolute', width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  dash: { position: 'absolute', width: 4, height: 30, backgroundColor: '#fff' },
+  player: { position: 'absolute', width: PLAYER_SIZE, height: PLAYER_SIZE, zIndex: 5 },
+  playerImage: { width: PLAYER_SIZE * 1.5, height: PLAYER_SIZE * 1.5 },
+  particle: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(200,200,200,0.8)' },
+  obstacle: { position: 'absolute', justifyContent: 'center', alignItems: 'center' },
+
+  // HUD mejorado con fondo transparente - Posicionado debajo del área de nubes
+  hud: {
     position: 'absolute',
-    left: '48%',
-    width: 4,
-    height: 50,
-    backgroundColor: '#FFFF00',
-    marginLeft: -2,
+    top: SCREEN_HEIGHT * 0.21, // Justo debajo del área de nubes (20% + 1% margen)
+    left: 15,
+    right: 15,
+    backgroundColor: 'rgba(0,0,0,0.3)', // Fondo semi-transparente
+    padding: 10,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  obstacle: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 30,
-  },
-  obstacleEmoji: {
-    fontSize: 40,
-  },
-  player: {
-    position: 'absolute',
-    top: ROAD_HEIGHT,
-    width: PLAYER_SIZE,
-    height: PLAYER_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 24,
-  },
-  playerEmoji: {
-    fontSize: 32,
-  },
-  gameUI: {
-    position: 'absolute',
-    top: ROAD_HEIGHT + 20,
-    left: 0,
-    right: 0,
+  hudTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    marginBottom: 8, // Espacio entre las dos filas
   },
-  statsContainer: {
+  hudBottomRow: {
     flexDirection: 'row',
-    gap: 20,
-  },
-  stat: {
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  statLabel: {
-    fontSize: 12,
-    color: colors.white,
-    marginBottom: 4,
+  scoreContainer: {
+    backgroundColor: 'rgba(255, 106, 0, 0.9)',
+    paddingHorizontal: 6, // Más pequeño para cuatro elementos
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 4,     // Espacio mínimo entre elementos
+    shadowColor: '#ff6a00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.white,
+  scoreLabel: { fontSize: 10, color: 'white', fontWeight: 'bold', textAlign: 'center' },
+  scoreValue: { fontSize: 16, color: 'white', fontWeight: 'bold', textAlign: 'center' },
+  levelContainer: {
+    backgroundColor: 'rgba(76, 175, 80, 0.9)',
+    paddingHorizontal: 6, // Más pequeño para cuatro elementos
+    paddingVertical: 4,
+    borderRadius: 8,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  endGameButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+  distanceContainer: {
+    backgroundColor: 'rgba(33, 150, 243, 0.9)',
+    paddingHorizontal: 6, // Más pequeño para cuatro elementos
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 4, // Espacio mínimo entre elementos
   },
-  endGameText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: 'bold',
+  speedContainer: {
+    backgroundColor: 'rgba(156, 39, 176, 0.9)',
+    paddingHorizontal: 6, // Más pequeño para cuatro elementos
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  questionContainer: {
-    flex: 1,
-    alignItems: 'center',
+  distanceLabel: { fontSize: 9, color: 'white', fontWeight: 'bold' },
+  distanceValue: { fontSize: 12, color: 'white', fontWeight: 'bold' },
+  speedLabel: { fontSize: 9, color: 'white', fontWeight: 'bold' },
+  speedValue: { fontSize: 12, color: 'white', fontWeight: 'bold' },
+  levelLabel: { fontSize: 10, color: 'white', fontWeight: 'bold', textAlign: 'center' },
+  levelValue: { fontSize: 16, color: 'white', fontWeight: 'bold', textAlign: 'center' },
+  heartsContainer: { flexDirection: 'row', alignItems: 'center' },
+  heartsLabel: { fontSize: 10, color: 'white', fontWeight: 'bold', marginRight: 5 },
+  heart: { fontSize: 16, marginLeft: 2 },
+  heartUsed: { opacity: 0.3 },
+  wrongCountContainer: {
+    backgroundColor: 'rgba(244, 67, 54, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  wrongCountLabel: { fontSize: 9, color: 'white', fontWeight: 'bold' },
+  wrongCountValue: { fontSize: 12, color: 'white', fontWeight: 'bold' },
+
+  startButton: {
+    position: 'absolute',
+    bottom: 50,
+    left: '50%',
+    transform: [{ translateX: -100 }],
+    width: 200,
+    height: 60,
+    backgroundColor: '#ff9800',
     justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    shadowColor: '#ff9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  startButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  gameOverContainer: { position: 'absolute', top: SCREEN_HEIGHT / 3, left: 0, right: 0, alignItems: 'center' },
+  gameOverText: { fontSize: 24, fontWeight: 'bold', marginVertical: 8, color: '#fff' },
+  gameOverButtons: { marginTop: 20, alignItems: 'center' },
+  completionButtons: { marginTop: 20, alignItems: 'center' },
+
+  // Modal Styles - EXACTAMENTE como en bicycle-game.tsx
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  questionCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  modalCard: {
+    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: colors.shadowDark as any,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  questionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  questionScenario: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  optionsContainer: {
-    gap: 12,
-  },
-  option: {
-    backgroundColor: '#f8f9fa',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  selectedOption: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(0, 123, 255, 0.1)',
-  },
-  correctOption: {
-    backgroundColor: 'rgba(40, 167, 69, 0.2)',
-    borderColor: colors.success,
-  },
-  incorrectOption: {
-    backgroundColor: 'rgba(220, 53, 69, 0.2)',
-    borderColor: colors.error || '#dc3545',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-  },
-  correctText: {
-    color: colors.success,
-    fontWeight: '600',
-  },
-  incorrectText: {
-    color: colors.error || '#dc3545',
-    textDecorationLine: 'line-through',
-  },
-  feedbackIcon: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  feedbackContainer: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 12,
-  },
-  feedbackText: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    width: '90%',
-    maxWidth: 400,
-    alignItems: 'center',
-    shadowColor: colors.shadowDark as any,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    width: '95%',
+    maxWidth: 480,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  modalScore: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.primary,
-    marginBottom: 12,
-  },
-  modalMessage: {
-    fontSize: 16,
-    color: '#666',
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 10,
   },
-  modalButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: '100%',
-    marginBottom: 8,
+  modalScenario: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  modalButtonGradient: {
-    paddingVertical: 16,
+  modalOptions: {
+    marginBottom: 20,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  modalOptionSelected: {
+    borderColor: colors.buttonSuccess,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  modalOptionIndicator: {
+    marginRight: 15,
+  },
+  modalCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(99, 102, 241, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  modalButtonText: {
+  modalCheckboxActive: {
+    backgroundColor: colors.buttonSuccess,
+    borderColor: colors.buttonSuccess,
+  },
+  modalCheckboxIcon: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  modalOptionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  modalConfirmButton: {
+    backgroundColor: colors.buttonPrimary,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalConfirmText: {
     color: colors.white,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalFeedback: {
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalFeedbackSuccess: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  modalFeedbackError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  modalFeedbackText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: colors.textPrimary,
+  },
+
+  // Estilos específicos para modal de colisiones
+  livesInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    borderRadius: 10,
+  },
+  livesText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginRight: 10,
+  },
+  heartsContainerModal: {
+    flexDirection: 'row',
+  },
+  heartModal: {
+    fontSize: 20,
+    marginLeft: 3,
+  },
+  heartUsedModal: {
+    opacity: 0.3,
+  },
+  modalContinueButton: {
+    backgroundColor: colors.buttonSuccess,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalContinueButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  // Estilos específicos para botones del modal de completitud
+  completionButton: {
+    backgroundColor: colors.buttonPrimary,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '80%',
+  },
+  completionButtonSecondary: {
+    backgroundColor: colors.buttonSecondary,
+  },
+  completionButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  completionButtonTextSecondary: {
+    color: colors.white,
+  },
+
+  // Estilos específicos para botones del modal de Game Over
+  gameOverButton: {
+    backgroundColor: colors.buttonPrimary,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '80%',
+  },
+  gameOverButtonSecondary: {
+    backgroundColor: colors.buttonSecondary,
+  },
+  gameOverButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  gameOverButtonTextSecondary: {
+    color: colors.white,
+  },
+
+  // Estilo para las imágenes en los modales
+  modalImage: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+    marginBottom: 15,
+    resizeMode: 'contain',
   },
 });

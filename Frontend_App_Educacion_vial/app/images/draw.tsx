@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
@@ -272,7 +272,7 @@ export default function ImagesDraw() {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
         // En React Native, localhost NO funciona, usar IP local de tu computadora
-        const baseUrl = 'http://192.168.68.120:3002'; // Tu IP local real
+        const baseUrl = 'http://192.168.68.127:3002'; // Tu IP local real
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {
