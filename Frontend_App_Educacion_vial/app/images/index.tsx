@@ -131,7 +131,7 @@ export default function ImagesMenu() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={styles.galleryBtn} onPress={() => router.push('/images/gallery' as Href)}>
+        <TouchableOpacity style={styles.galleryBtn} onPress={() => router.push('/images/gallery?from=level1' as Href)}>
           <Image source={require('../../assets/images/btn-galeria.jpg')} style={styles.galleryImage} resizeMode="contain" />
         </TouchableOpacity>
       </ScrollView>

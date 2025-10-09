@@ -48,12 +48,14 @@ export default function ImagesMenuLevel2() {
 
       images.forEach((image) => {
         const baseImage = image.data?.baseImage as TaskId | undefined;
-        if (baseImage && Object.prototype.hasOwnProperty.call(imagesByCategory, baseImage)) {
+        const level = image.data?.level;
+        // Solo contar imágenes del nivel 2
+        if (baseImage && level === '2' && Object.prototype.hasOwnProperty.call(imagesByCategory, baseImage)) {
           imagesByCategory[baseImage]++;
         }
       });
 
-      // Verificar si cada categoría tiene al menos 1 imagen
+      // Verificar si cada categoría tiene al menos 1 imagen del nivel 2
       Object.keys(imagesByCategory).forEach((category) => {
         const cat = category as TaskId;
         if (imagesByCategory[cat] > 0) {
@@ -100,7 +102,7 @@ export default function ImagesMenuLevel2() {
       <Text style={styles.sectionTitle}>🎯 Opciones de Colorear Nivel 2</Text>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {TASKS_LEVEL2.map((task) => (
-          <TouchableOpacity key={task.id} style={styles.card} onPress={() => router.push(`/images/draw?task=${task.id}` as Href)}>
+          <TouchableOpacity key={task.id} style={styles.card} onPress={() => router.push(`/images/draw2?task=${task.id}` as Href)}>
             <View style={styles.cardLeftEmoji}><Text style={{ fontSize: 36 }}>{task.emoji}</Text></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{task.title}</Text>
@@ -122,7 +124,7 @@ export default function ImagesMenuLevel2() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={styles.galleryBtn} onPress={() => router.push('/images/gallery' as Href)}>
+        <TouchableOpacity style={styles.galleryBtn} onPress={() => router.push('/images/gallery?from=level2' as Href)}>
           <LinearGradient colors={colors.gradientSecondary} style={styles.galleryGradient}>
             <Text style={styles.galleryText}>🖼️ Ver Galería</Text>
           </LinearGradient>

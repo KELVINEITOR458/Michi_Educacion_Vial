@@ -117,7 +117,7 @@ interface MovingObstacle {
   width: number;
   height: number;
   speed: number;
-  type: 'car' | 'truck' | 'stone' | 'animal';
+  type: 'car' | 'truck' | 'stone' | 'animal' | 'pothole' | 'bicycle';
   emoji: string;
 }
 
@@ -126,6 +126,8 @@ const OBSTACLE_TYPES = [
   { type: 'truck' as const, emoji: '🚛', width: 80, height: 50, speed: 0.8 },
   { type: 'stone' as const, emoji: '🪨', width: 45, height: 45, speed: 0 },
   { type: 'animal' as const, emoji: '🐈', width: 50, height: 50, speed: 0.4 },
+  { type: 'pothole' as const, emoji: '🕳️', width: 55, height: 35, speed: 0 }, // Nuevo obstáculo
+  //{ type: 'bicycle' as const, emoji: '🚲', width: 45, height: 45, speed: 0.9 },// // Otro ciclista
 ];
 
 // --- Preguntas ---
@@ -231,13 +233,13 @@ export const playSound = async (type: 'collision' | 'correct' | 'wrong') => {
     // Reproducir el sonido
     await sound.playAsync();
 
-    // Liberar después de 1.5 segundos como respaldo
+    // Liberar después de .5 segundos como respaldo
     setTimeout(() => {
       if (soundObjects.has(soundKey)) {
         sound.unloadAsync().catch(console.warn);
         soundObjects.delete(soundKey);
       }
-    }, 1500);
+    }, 500);
 
   } catch (err) {
     console.warn(`Error reproduciendo sonido ${type}:`, err);
@@ -341,7 +343,7 @@ function BicycleGameScreen() {
 
   const baseSpeed = 3; // Reducido de 4 para comenzar más lento
   const speed = baseSpeed + Math.min(score * 0.15, 2); // Máximo aumento de 2 puntos de velocidad
-  const spawnChance = Math.min(0.01 + (distance / 1000) * 0.002, 0.06); // Basado en distancia en lugar de score, máximo 6%
+  const spawnChance = Math.min(0.02 + (distance / 1000) * 0.003, 0.08); // AUMENTADO: Basado en distancia, máximo 8% (doble del original)
 
   // Animación del jugador
   useEffect(() => {
@@ -408,8 +410,8 @@ function BicycleGameScreen() {
         .filter(obstacle => obstacle.y < SCREEN_HEIGHT + 100)
     );
 
-    // Spawn new obstacles
-    if (Math.random() < spawnChance) {
+    // Spawn new obstacles - AUMENTADO: Más obstáculos para mayor dificultad
+    if (Math.random() < spawnChance || obstacles.length < 2) { // También genera si hay pocos obstáculos (máximo 3)
       const obstacleType = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
       const newObstacle: MovingObstacle = {
         id: String(Date.now()),
@@ -418,7 +420,7 @@ function BicycleGameScreen() {
         width: obstacleType.width,
         height: obstacleType.height,
         speed: obstacleType.speed + obstacleSpeedMultiplier * 0.3, // Más gradual que * 0.5
-        type: obstacleType.type,
+        type: obstacleType.type as 'car' | 'truck' | 'stone' | 'animal' | 'pothole' | 'bicycle',
         emoji: obstacleType.emoji,
       };
       setObstacles(prev => [...prev, newObstacle]);
@@ -478,20 +480,20 @@ function BicycleGameScreen() {
       }
     }
 
-    // Increase level - Más gradual basado en distancia
-    const newLevel = Math.floor(distance / 600) + 1; // Aumenta cada 600m en lugar de 400m
+    // Increase level - Más agresivo basado en distancia y puntuación
+    const newLevel = Math.floor(distance / 500) + 1; // Aumenta cada 500m en lugar de 600m
     if (newLevel > level) {
       setLevel(newLevel);
-      setObstacleSpeedMultiplier(prev => prev + 0.2); // Aumenta gradualmente la velocidad de obstáculos
+      setObstacleSpeedMultiplier(prev => prev + 0.4); // Aumenta más rápidamente la velocidad de obstáculos
     }
 
-    // Partículas de polvo - Más frecuentes pero no excesivas (20% de probabilidad)
-    if (Math.random() < 0.2) {
+    // Partículas de polvo - Más frecuentes para mayor inmersión (35% de probabilidad)
+    if (Math.random() < 0.35) {
       generateParticles();
     }
 
-    // Generar partículas de velocidad detrás de la bicicleta
-    if (Math.random() < 0.3 && speed > baseSpeed) { // Solo cuando va rápido
+    // Generar partículas de velocidad detrás de la bicicleta - Más frecuentes
+    if (Math.random() < 0.5 && speed > baseSpeed) { // Aumentado de 0.3 a 0.5
       generateSpeedParticles();
     }
 
@@ -829,7 +831,6 @@ function BicycleGameScreen() {
       stopBackgroundMusic();
     };
   }, [gameState]);
-
   return (
     <LinearGradient colors={getLevelGradient() as [string, string, ...string[]]} style={styles.container}>
       {/* Fondo dinámico con cielo y nubes - AHORA VISIBLE */}
@@ -972,9 +973,36 @@ function BicycleGameScreen() {
 
       {/* Menú */}
       {gameState === GameState.Menu && (
-        <TouchableOpacity style={styles.startButton} onPress={startGame}>
-          <Text style={styles.startButtonText}>Iniciar Juego Nivel 2 🚴‍♂️</Text>
-        </TouchableOpacity>
+        <LinearGradient colors={colors.gradientPrimary} style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
+          <TouchableOpacity 
+            onPress={() => router.replace('/minigames/level2' as Href)} 
+            style={styles.backTopBtn} 
+            activeOpacity={0.85}
+          >
+            <Image source={require('../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
+          </TouchableOpacity>
+          <View style={styles.menuContainer}>
+            <View style={styles.mascotContainer}>
+              <Image source={require('../assets/images/bici.png')} style={styles.biciImage} resizeMode="contain" />
+            </View>
+            <Text style={styles.gameTitle}>Aventura en Bicicleta Nivel 2</Text>
+            <Text style={styles.gameSubtitle}>
+              Demuestra lo que has aprendido en este nivel más desafiante
+            </Text>
+            
+            <View style={styles.instructionsContainer}>
+              <Text style={styles.instructionsTitle}>Cómo Jugar:</Text>
+              <Text style={styles.instructionText}>• Desliza para mover tu bicicleta</Text>
+              <Text style={styles.instructionText}>• Evita más obstáculos que antes</Text>
+              <Text style={styles.instructionText}>• Responde preguntas para continuar</Text>
+              <Text style={styles.instructionText}>• ¡Cuidado con los límites de velocidad!</Text>
+            </View>
+
+            <TouchableOpacity style={styles.startButton} onPress={startGame}>
+              <Text style={styles.startButtonText}>Comenzar Nivel 2</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       )}
 
       {/* Question Modal */}
@@ -1330,24 +1358,87 @@ const styles = StyleSheet.create({
   wrongCountLabel: { fontSize: 9, color: 'white', fontWeight: 'bold' },
   wrongCountValue: { fontSize: 12, color: 'white', fontWeight: 'bold' },
 
-  startButton: {
+  // Menu Styles
+  backTopBtn: {
     position: 'absolute',
-    bottom: 50,
-    left: '50%',
-    transform: [{ translateX: -100 }],
-    width: 200,
-    height: 60,
-    backgroundColor: '#ff9800',
+    top: 20,
+    left: 16,
+    zIndex: 10,
+  },
+  backImg: {
+    width: 96,
+    height: 84,
+  },
+  menuContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
-    shadowColor: '#ff9800',
+    padding: 20,
+  },
+  mascotContainer: {
+    width: 200,
+    height: 200,
+    marginBottom: 20,
+  },
+  biciImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gameTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.white,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  gameSubtitle: {
+    fontSize: 16,
+    color: colors.white,
+    textAlign: 'center',
+    marginBottom: 30,
+    opacity: 0.9,
+  },
+  instructionsContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 30,
+    width: '100%',
+    maxWidth: 400,
+  },
+  instructionsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  instructionText: {
+    fontSize: 14,
+    color: colors.white,
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  startButton: {
+    backgroundColor: colors.buttonSuccess,
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    borderRadius: 25,
+    marginBottom: 15,
+    width: '80%',
+    maxWidth: 300,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
-  startButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  startButtonText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   gameOverContainer: { position: 'absolute', top: SCREEN_HEIGHT / 3, left: 0, right: 0, alignItems: 'center' },
   gameOverText: { fontSize: 24, fontWeight: 'bold', marginVertical: 8, color: '#fff' },
   gameOverButtons: { marginTop: 20, alignItems: 'center' },

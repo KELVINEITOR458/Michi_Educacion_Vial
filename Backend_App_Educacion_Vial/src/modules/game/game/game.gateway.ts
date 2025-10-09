@@ -11,8 +11,8 @@ import { Server, Socket } from 'socket.io';
   cors: {
     origin: [
       'http://localhost:19006',
-      'http://192.168.68.127:19006',
-      'http://192.168.68.127:9999',
+      'http://192.168.68.114:19006',
+      'http://192.168.68.114:9999',
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
@@ -22,7 +22,7 @@ import { Server, Socket } from 'socket.io';
       'http://localhost:8080',
       'http://localhost:9999',
       'http://localhost:*', // Permitir cualquier puerto localhost
-      'exp://192.168.68.127:19000',
+      'exp://192.168.68.114:19000',
       /^https?:\/\/192\.168\.68\.\d{1,3}:\d+$/,
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
