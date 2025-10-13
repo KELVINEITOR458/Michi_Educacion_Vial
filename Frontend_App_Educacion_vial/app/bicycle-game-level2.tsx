@@ -340,6 +340,10 @@ function BicycleGameScreen() {
   const bgOffset = useRef(new Animated.Value(0)).current;
   const backgroundOffset = useRef(new Animated.Value(0)).current;
   const cloudOffsets = useRef<{[key: string]: Animated.Value}>({}).current;
+  // Refs para minimizar renders del HUD
+  const distanceRef = useRef(0);
+  const scoreRef = useRef(0);
+  const lastHudUpdateAt = useRef<number>(0);
 
   const baseSpeed = 3; // Reducido de 4 para comenzar más lento
   const speed = baseSpeed + Math.min(score * 0.15, 2); // Máximo aumento de 2 puntos de velocidad
@@ -393,9 +397,15 @@ function BicycleGameScreen() {
     const dt = (now - last) / 1000; // seconds
     lastFrameTime.current = now;
 
-    // Update distance and score (5 m/s)
-    setDistance(prev => prev + SPEED_MPS * dt);
-    setScore(prev => prev + Math.floor(10 * dt)); // score ticks
+    // Update distance and score (5 m/s) con throttling para evitar renders excesivos
+    distanceRef.current = distanceRef.current + SPEED_MPS * dt;
+    scoreRef.current = scoreRef.current + 10 * dt;
+    const nowMs = now;
+    if (nowMs - (lastHudUpdateAt.current || 0) > 100) { // cada ~100ms
+      setDistance(Math.floor(distanceRef.current));
+      setScore(Math.floor(scoreRef.current));
+      lastHudUpdateAt.current = nowMs;
+    }
 
     // Animate road dashed lines
     roadOffsetRef.current = (roadOffsetRef.current + 200 * dt) % (SCREEN_HEIGHT);
@@ -429,14 +439,7 @@ function BicycleGameScreen() {
     // Animate road dashed lines
     roadOffsetRef.current = (roadOffsetRef.current + 200 * dt) % (SCREEN_HEIGHT);
 
-    // Fondo y carretera - Sin animaciones del fondo para eliminar titileo
-    Animated.timing(roadOffset, {
-      toValue: 30,
-      duration: 150,
-      useNativeDriver: false
-    }).start(() =>
-      roadOffset.setValue(0)
-    );
+    // La animación continua de la carretera se maneja en un useEffect dedicado
 
     // Animar nubes del fondo dinámico - Dirección derecha a izquierda con parallax
     clouds.forEach(cloud => {
@@ -488,12 +491,12 @@ function BicycleGameScreen() {
     }
 
     // Partículas de polvo - Más frecuentes para mayor inmersión (35% de probabilidad)
-    if (Math.random() < 0.35) {
+    if (Math.random() < 0.35 && particles.length < 60) {
       generateParticles();
     }
 
     // Generar partículas de velocidad detrás de la bicicleta - Más frecuentes
-    if (Math.random() < 0.5 && speed > baseSpeed) { // Aumentado de 0.3 a 0.5
+    if (Math.random() < 0.5 && speed > baseSpeed && particles.length < 60) { // limitar cantidad
       generateSpeedParticles();
     }
 
@@ -691,6 +694,8 @@ function BicycleGameScreen() {
     setGameState(GameState.Playing);
     setScore(0);
     setDistance(0);
+    scoreRef.current = 0;
+    distanceRef.current = 0;
     setCollisionCount(0);
     setWrongCount(0);
     setCorrectCount(0);
@@ -831,6 +836,27 @@ function BicycleGameScreen() {
       stopBackgroundMusic();
     };
   }, [gameState]);
+
+  // Animación continua de la carretera usando un loop independiente (menos jank)
+  useEffect(() => {
+    let isMounted = true;
+    const loop = () => {
+      if (!isMounted || gameState !== GameState.Playing) return;
+      roadOffset.setValue(0);
+      Animated.timing(roadOffset, {
+        toValue: 30,
+        duration: 150,
+        useNativeDriver: false,
+      }).start(() => {
+        if (isMounted) loop();
+      });
+    };
+    loop();
+    return () => {
+      isMounted = false;
+      roadOffset.stopAnimation();
+    };
+  }, [gameState, roadOffset]);
   return (
     <LinearGradient colors={getLevelGradient() as [string, string, ...string[]]} style={styles.container}>
       {/* Fondo dinámico con cielo y nubes - AHORA VISIBLE */}

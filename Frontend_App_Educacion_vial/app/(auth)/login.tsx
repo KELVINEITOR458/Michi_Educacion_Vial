@@ -135,7 +135,7 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.underline} />
-                <TouchableOpacity onPress={() => Alert.alert('Recuperación', 'Funcionalidad en construcción')} style={styles.forgotWrapper}>
+                <TouchableOpacity onPress={() => Alert.alert('Recuperación', 'La clave es tu número de cédula')} style={styles.forgotWrapper}>
                   <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
                 </TouchableOpacity>
               </View>

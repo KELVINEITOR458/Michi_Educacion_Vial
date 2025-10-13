@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
 // Asegúrate de que la URL coincida con la IP y puerto de tu servidor backend
-const URL = 'http://192.168.68.114:3002';
+const URL = 'http://192.168.68.121:3002';
 
 export const socket: Socket = io(URL, {
   withCredentials: true,

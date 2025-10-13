@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/utils/colors';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import questions from './questions-level2';
-import { QuizProgressService } from '@/services/quizProgress';
+import { QuizProgressLevel2Service } from '@/services/quizProgressLevel2';
 
 // Mapeo de imágenes para las preguntas (completamente opcional)
 const questionImages: { [key: string]: any } = {};
@@ -197,7 +197,7 @@ export default function QuizPlayLevel2() {
 
         if (finalScore === levelQuestions.length && failedQuestions.size === 0) {
           // ✅ Completó todas las 5 preguntas correctamente
-          await QuizProgressService.completeLevel(levelId, finalScore);
+          await QuizProgressLevel2Service.completeLevel(levelId, finalScore);
 
           Alert.alert(
             '¡Nivel Completado!',
