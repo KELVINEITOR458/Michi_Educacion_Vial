@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ProgressApi } from '@/services/progress';
-import { AuthService } from '@/services/auth';
+import { ProgressApi } from '../services/progress';
+import { AuthService } from '../services/auth';
 
 const QUIZ_PROGRESS_L2_KEY = 'quiz_progress_level2';
 
@@ -62,8 +62,6 @@ export class QuizProgressLevel2Service {
       }
 
       await this.saveProgress(p);
-
-      // Si ahora todos los niveles del Nivel 2 están completos, reflejarlo en el backend
       try {
         if (p.easy.completed && p.medium.completed && p.hard.completed) {
           const session = await AuthService.getSession();

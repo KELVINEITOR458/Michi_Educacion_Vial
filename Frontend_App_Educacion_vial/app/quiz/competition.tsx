@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { io, Socket } from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,7 +25,7 @@ const colors = {
   gradientSecondary: ['#FF6B6B', '#FF8E53'] as const
 };
 
-const SERVER_URL = __DEV__ ? 'http://192.168.68.121:3003' : 'http://localhost:3003';
+const SERVER_URL = __DEV__ ? 'http://192.168.68.121:3002' : 'http://localhost:3002';
 const MAX_PLAYERS = 4;
 
 interface Player {
@@ -83,7 +84,6 @@ export default function CompetitionScreen() {
         const socket = socketRef.current;
 
         socket.on('connect', () => {
-          console.log('✅ Conectado al servidor Socket.IO');
           setConnectionStatus(CONNECTION_STATES.CONNECTED);
           setIsConnected(true);
 
@@ -108,27 +108,67 @@ export default function CompetitionScreen() {
         });
 
         socket.on('disconnect', (reason) => {
-          console.log('🔌 Desconectado del servidor:', reason);
           setConnectionStatus(CONNECTION_STATES.DISCONNECTED);
           setIsConnected(false);
         });
 
         socket.on('roomCreated', (data: { roomCode: string }) => {
-          console.log('🏠 Sala creada:', data.roomCode);
           roomCode.current = data.roomCode;
           router.setParams({ roomCode: data.roomCode });
+          // Reflejar inmediatamente la creación en el host
+          setIsHost(true);
+          setPlayers([{
+            id: playerIdRef.current,
+            socketId: String(socket.id || ''),
+            name: playerName.current,
+            score: 0,
+            time: 0,
+            isReady: true,
+            isHost: true,
+          }]);
         });
 
         socket.on('roomJoined', (data: { players: Player[] }) => {
-          console.log('👥 Jugadores en sala:', data.players.length);
           setPlayers(data.players);
+          // Asegurar que tenemos un roomCode válido si el servidor no lo re-emite
+          if (!roomCode.current) {
+            roomCode.current = initialRoomCode || roomCode.current || '';
+          }
+        });
+
+        // Algunos servidores emiten eventos distintos para actualizar la lista
+        socket.on('playersUpdated', (data: { players: Player[] }) => {
+          setPlayers(data.players);
+        });
+        socket.on('playerJoined', (payload: { players?: Player[]; player?: Player }) => {
+          if (payload?.players) {
+            setPlayers(payload.players);
+          } else if (payload?.player) {
+            setPlayers(prev => {
+              const exists = prev.some(p => p.id === payload.player!.id);
+              return exists ? prev : [...prev, payload.player!];
+            });
+          }
+        });
+        socket.on('playerLeft', (payload: { players?: Player[]; playerId?: string }) => {
+          if (payload?.players) {
+            setPlayers(payload.players);
+          } else if (payload?.playerId) {
+            setPlayers(prev => prev.filter(p => p.id !== payload.playerId));
+          }
         });
 
         socket.on('competitionStarted', (data: { roomCode: string; players: Player[] }) => {
-          console.log('🚀 Competencia iniciada en sala:', data.roomCode);
           setPlayers(data.players);
           setGameState('in_progress');
-          Alert.alert('¡Competencia Iniciada!', 'La competencia ha comenzado. ¡Buena suerte!');
+          router.push({ 
+            pathname: '/quiz/competition-play' as any, 
+            params: { 
+              roomCode: data.roomCode,
+              playerId: playerIdRef.current,
+              playerName: playerName.current
+            } 
+          });
         });
 
         socket.on('error', (error: string) => {
@@ -178,12 +218,13 @@ export default function CompetitionScreen() {
 
   const copyRoomCode = async () => {
     try {
-      if (Platform.OS === 'web') {
-        await navigator.clipboard.writeText(roomCode.current);
-      } else {
-        await SecureStore.setItemAsync('roomCode', roomCode.current);
+      const code = roomCode.current || '';
+      if (!code) {
+        Alert.alert('Código no disponible', 'Aún no se ha generado el código de sala.');
+        return;
       }
-      Alert.alert('Código copiado', `Código de sala: ${roomCode.current}`);
+      await Clipboard.setStringAsync(code);
+      Alert.alert('Código copiado', `Código de sala: ${code}`);
     } catch (error) {
       Alert.alert('Error', 'No se pudo copiar el código al portapapeles');
     }
@@ -319,6 +360,16 @@ export default function CompetitionScreen() {
                 playerName: playerName.current
               });
               setIsHost(true);
+              // Estado optimista: reflejar host inmediatamente
+              setPlayers([{
+                id: playerIdRef.current,
+                socketId: String(socket.id || ''),
+                name: playerName.current,
+                score: 0,
+                time: 0,
+                isReady: true,
+                isHost: true,
+              }]);
             }
           }}>
             <Text style={styles.buttonText}>Crear Sala</Text>

@@ -226,7 +226,7 @@ export default function QuizLevelsLevel2() {
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace('/minigames/level2' as Href)}
+        onPress={() => router.replace('/quiz/main-level2' as Href)}
         activeOpacity={0.8}
       >
         <Image source={require('../../assets/images/btn-volver.png')} style={{ width: 96, height: 84 }} resizeMode="contain" />
