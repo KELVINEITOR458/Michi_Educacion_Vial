@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Image, ImageBackground } from 'react-native';
 import { useRouter, type Href, useFocusEffect } from 'expo-router';
 import { colors } from '@/utils/colors';
 import { ProgressApi } from '@/services/progress';
@@ -70,12 +69,12 @@ export default function ImagesMenu() {
     if (totalImages >= 3) {
       try {
         await maybeAwardColoringSetStar();
-      } catch {}
+      } catch { }
     } else {
       // Si no se cumplen los requisitos, eliminar la estrella
       try {
         await maybeRemoveColoringSetStar();
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -90,27 +89,41 @@ export default function ImagesMenu() {
   );
 
   return (
-    <LinearGradient colors={['#90EE90', '#7CB342', colors.gradientVialGreen[0]]} style={styles.container}>
+    <ImageBackground source={require('../../assets/images/fondo-colorear.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
       <TouchableOpacity onPress={() => router.replace('/minigames/level1' as Href)} style={styles.backBtn} activeOpacity={0.85}>
         <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
       </TouchableOpacity>
 
-      <View style={styles.mascotContainer}>
-        <Image source={require('../../assets/images/pintor.png')} style={styles.pintorImage} resizeMode="contain" />
-      </View>
+      {/* Estrellas de progreso del set (3 tareas) */}
+      <StarsRow completed={completed} />
 
       <Text style={styles.title}>🎨 Colorear Divertidamente</Text>
       <Text style={styles.subtitle}>Elige una imagen para colorear y crear tu obra de arte</Text>
 
 
-      {/* Estrellas de progreso del set (3 tareas) */}
-      <StarsRow completed={completed} />
 
       <Text style={styles.sectionTitle}>🎯 Opciones de Colorear</Text>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {TASKS.map((t) => (
-          <TouchableOpacity key={t.id} style={styles.card} onPress={() => router.push(`/images/draw?task=${t.id}` as Href)}>
-            <View style={styles.cardLeftEmoji}><Text style={{ fontSize: 36 }}>{t.emoji}</Text></View>
+          <TouchableOpacity key={t.id} style={[styles.card, { position: 'relative' }]} onPress={() => router.push(`/images/draw?task=${t.id}` as Href)}>
+            {completed[t.id] && (
+              <View style={styles.completedBadge}>
+                <Text style={styles.completedBadgeText}>✓ Completado</Text>
+              </View>
+            )}
+            <View style={styles.cardLeftEmoji}>
+              <Image
+                source={
+                  t.id === 'cat'
+                    ? require('../../assets/images/policia-coloreado.png')
+                    : t.id === 'patrol'
+                      ? require('../../assets/images/patrulla-coloreada.png')
+                      : require('../../assets/images/semaforo-coloreado.png')
+                }
+                style={{ width: 44, height: 44, borderRadius: 10 }}
+                resizeMode="cover"
+              />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{t.title}</Text>
               <Text style={styles.cardDesc}>{t.desc}</Text>
@@ -121,13 +134,9 @@ export default function ImagesMenu() {
                 <View style={[styles.badge, { backgroundColor: 'rgba(16,185,129,0.9)' }]}>
                   <Text style={[styles.badgeText, { color: '#fff' }]}>⭐ {t.difficulty}</Text>
                 </View>
-                {completed[t.id] && (
-                  <View style={[styles.badge, { backgroundColor: 'rgba(251,191,36,0.95)' }]}>
-                    <Text style={[styles.badgeText, { color: '#000', fontWeight: '700' }]}>Completado</Text>
-                  </View>
-                )}
               </View>
             </View>
+
           </TouchableOpacity>
         ))}
 
@@ -135,7 +144,7 @@ export default function ImagesMenu() {
           <Image source={require('../../assets/images/btn-galeria.jpg')} style={styles.galleryImage} resizeMode="contain" />
         </TouchableOpacity>
       </ScrollView>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 
@@ -143,33 +152,117 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingTop: 90 },
   backBtn: { position: 'absolute', top: 20, left: 16, zIndex: 10 },
   backImg: { width: 96, height: 84 },
-  title: { fontSize: width < 400 ? 24 : 28, fontWeight: 'bold', color: colors.white, textAlign: 'left' },
+  title: { fontSize: width < 400 ? 24 : 28, fontWeight: 'bold', color: colors.white, textAlign: 'left', marginBottom: 10, marginTop: 8 },
   subtitle: { fontSize: width < 400 ? 14 : 16, color: colors.white, opacity: 0.9, marginTop: 4 },
   mascotContainer: { alignItems: 'center', marginVertical: 12 },
   pintorImage: { width: width < 450 ? 200 : 260, height: width < 450 ? 180 : 220 },
   sectionTitle: { color: colors.white, fontWeight: '800', marginBottom: 8, marginTop: 8 },
-  card: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 18, padding: 12, alignItems: 'center', marginBottom: 10 },
-  cardLeftEmoji: { width: 56, height: 56, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  card: { 
+    flexDirection: 'row', 
+    backgroundColor: 'rgba(255,255,255,0.25)', 
+    borderRadius: 16, 
+    padding: 12, 
+    alignItems: 'center', 
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  // Para posicionar el badge de estrella sin afectar layout
+  cardContainer: {},
+
+  cardLeftEmoji: { 
+    width: 54, 
+    height: 54, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(255,255,255,0.45)', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+  },
   cardTitle: { color: colors.white, fontWeight: '700', fontSize: 16 },
   cardDesc: { color: colors.white, opacity: 0.95, marginTop: 2 },
   badgesRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
   badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { color: colors.white, fontWeight: '600' },
-  galleryBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 4 },
+  completedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(251,191,36,0.95)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    zIndex: 10,
+  },
+  completedBadgeText: {
+    color: '#000',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  galleryBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8, marginHorizontal: 20 },
   galleryGradient: { paddingVertical: 12, alignItems: 'center' },
   galleryText: { color: colors.white, fontWeight: '700' },
-  galleryImage: { width: '100%', height: 60 },
+  galleryImage: { width: '100%', height: 100 },
 });
 
 // Componente de estrellas para 3 tareas
 function StarsRow({ completed }: { completed: Record<'cat' | 'patrol' | 'semaforo', boolean> }) {
   const count = (completed.cat ? 1 : 0) + (completed.patrol ? 1 : 0) + (completed.semaforo ? 1 : 0);
   return (
-    <View style={{ flexDirection: 'row', alignSelf: 'center', gap: 6, marginVertical: 6 }}>
-      {[1, 2, 3].map((i) => (
-        <Text key={i} style={{ fontSize: 20 }}>{i <= count ? '⭐' : '☆'}</Text>
-      ))}
+    <View style={starsCardStyles.cardContainer}>
+      <Text style={starsCardStyles.cardTitle}>Tu Progreso</Text>
+      <View style={starsCardStyles.starsRow}>
+        {[1, 2, 3].map((i) => (
+          <Text key={i} style={starsCardStyles.star}>{i <= count ? '⭐' : '☆'}</Text>
+        ))}
+      </View>
+      <Text style={starsCardStyles.cardSubtitle}>{count} de 3 completadas</Text>
     </View>
   );
 }
+
+const starsCardStyles = StyleSheet.create({
+  cardContainer: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  cardTitle: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 4,
+  },
+  star: {
+    fontSize: 28,
+  },
+  cardSubtitle: {
+    color: colors.white,
+    fontSize: 12,
+    opacity: 0.85,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+});
 

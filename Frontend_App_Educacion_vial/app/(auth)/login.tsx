@@ -17,6 +17,8 @@ export default function LoginScreen() {
   const [cedula, setCedula] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const [showOverlay, setShowOverlay] = useState(false);
 
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -38,8 +40,36 @@ export default function LoginScreen() {
       Animated.loop(
         Animated.timing(loadingMover, { toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: false })
       ).start();
+      setShowOverlay(true);
+      overlayOpacity.setValue(1);
+    } else {
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setShowOverlay(false);
+      });
     }
-  }, [loading, loadingMover]);
+  }, [loading, loadingMover, overlayOpacity]);
+
+  // Garantizar desmontaje del overlay al salir de la pantalla
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        setLoading(false);
+        setShowOverlay(false);
+        overlayOpacity.setValue(0);
+      };
+    }, [overlayOpacity])
+  );
+
+  // Salvaguarda: si no está loading pero el overlay sigue montado, ocultarlo
+  useEffect(() => {
+    if (!loading && showOverlay) {
+      const t = setTimeout(() => {
+        setShowOverlay(false);
+        overlayOpacity.setValue(0);
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [loading, showOverlay, overlayOpacity]);
 
   const onLogin = async () => {
     if (!userName || !cedula) {
@@ -49,10 +79,15 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await AuthService.login(userName.trim(), cedula.trim());
-      router.replace('/welcome' as Href);
+      // Apagar loading y navegar después del fade-out breve
+      setLoading(false);
+      setTimeout(() => {
+        router.replace('/welcome' as Href);
+      }, 50);
     } catch (e: any) {
       Alert.alert('Login fallido', e?.message || 'Error desconocido');
     } finally {
+      // Si falló, asegurarse de ocultar overlay
       setLoading(false);
     }
   };
@@ -155,8 +190,8 @@ export default function LoginScreen() {
           </View>
         </Animated.View>
 
-        {loading && (
-          <View style={styles.loadingOverlay} pointerEvents="none">
+        {showOverlay && (
+          <Animated.View style={[styles.loadingOverlay, { opacity: overlayOpacity }]} pointerEvents="none">
             <ImageBackground source={require('../../assets/images/fondo-loading.png')} style={styles.overlayBgImage} resizeMode="cover">
               <View style={styles.overlayDim} />
               <View style={styles.overlayCenter}>
@@ -171,7 +206,7 @@ export default function LoginScreen() {
                 </View>
               </View>
             </ImageBackground>
-          </View>
+          </Animated.View>
         )}
 
       </View>
@@ -180,7 +215,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: colors.loginBackground },
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, backgroundColor: colors.loginBackground },
   bgContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backgroundColor: colors.loginBackground },
   bgImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },

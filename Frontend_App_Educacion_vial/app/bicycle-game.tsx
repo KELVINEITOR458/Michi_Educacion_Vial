@@ -12,6 +12,7 @@ import {
   GestureResponderEvent,
   PanResponderGestureState,
   Alert,
+  ImageBackground,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
@@ -510,7 +511,7 @@ export default function BicycleGameScreen() {
   // Render Menu
   if (gameState === GameState.Menu) {
     return (
-      <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
+      <ImageBackground source={require('../assets/images/aven-bici.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
         <TouchableOpacity 
           onPress={() => router.replace('/minigames/level1' as Href)} 
           style={styles.backTopBtn} 
@@ -519,13 +520,12 @@ export default function BicycleGameScreen() {
           <Image source={require('../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
         </TouchableOpacity>
         <View style={styles.menuContainer}>
-          <View style={styles.mascotContainer}>
-            <Image source={require('../assets/images/bici.png')} style={styles.biciImage} resizeMode="contain" />
+          <View style={styles.titleContainer}>
+            <Text style={styles.gameTitle}>🚴‍♂️ Aventura en Bicicleta</Text>
+            <Text style={styles.gameSubtitle}>
+              Evita obstáculos y responde preguntas correctamente para avanzar
+            </Text>
           </View>
-          <Text style={styles.gameTitle}> Aventura en Bicicleta</Text>
-          <Text style={styles.gameSubtitle}>
-            Evita obstáculos y responde preguntas correctamente para avanzar
-          </Text>
           
           <View style={styles.instructionsContainer}>
             <Text style={styles.instructionsTitle}>Cómo Jugar:</Text>
@@ -541,7 +541,7 @@ export default function BicycleGameScreen() {
 
           
         </View>
-      </LinearGradient>
+      </ImageBackground>
     );
   }
 
@@ -839,26 +839,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  titleContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    alignItems: 'center',
+  },
   gameTitle: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   gameSubtitle: {
     fontSize: 16,
-    color: colors.white,
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 30,
-    opacity: 0.9,
+    marginBottom: 0,
+    marginTop: 8,
+    opacity: 0.95,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    fontWeight: '500',
   },
   instructionsContainer: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 30,
     width: '100%',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   instructionsTitle: {
     fontSize: 18,
@@ -868,8 +897,12 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 14,
-    color: colors.white,
+    color: '#FFFFFF',
     marginBottom: 5,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   startButton: {
     backgroundColor: colors.buttonSuccess,

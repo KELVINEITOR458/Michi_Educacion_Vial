@@ -100,8 +100,20 @@ export default function ImagesMenuLevel2() {
       <Text style={styles.sectionTitle}>🎯 Opciones de Colorear Nivel 2</Text>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {TASKS_LEVEL2.map((task) => (
-          <TouchableOpacity key={task.id} style={styles.card} onPress={() => router.push(`/images/draw?task=${task.id}` as Href)}>
-            <View style={styles.cardLeftEmoji}><Text style={{ fontSize: 36 }}>{task.emoji}</Text></View>
+          <TouchableOpacity key={task.id} style={[styles.card, { position: 'relative' }]} onPress={() => router.push(`/images/draw?task=${task.id}` as Href)}>
+            <View style={styles.cardLeftEmoji}>
+              <Image
+                source={
+                  task.id === 'cat-level2'
+                    ? require('../../assets/images/policia-coloreado.png')
+                    : task.id === 'patrol-level2'
+                    ? require('../../assets/images/patrulla-coloreada.png')
+                    : require('../../assets/images/semaforo-coloreado.png')
+                }
+                style={{ width: 46, height: 46, borderRadius: 10 }}
+                resizeMode="cover"
+              />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{task.title}</Text>
               <Text style={styles.cardDesc}>{task.desc}</Text>
@@ -112,12 +124,10 @@ export default function ImagesMenuLevel2() {
                 <View style={[styles.badge, { backgroundColor: 'rgba(16,185,129,0.9)' }]}>
                   <Text style={[styles.badgeText, { color: '#fff' }]}>⭐ {task.difficulty}</Text>
                 </View>
-                {completed[task.id] && (
-                  <View style={[styles.badge, { backgroundColor: 'rgba(251,191,36,0.95)' }]}>
-                    <Text style={[styles.badgeText, { color: '#000', fontWeight: '700' }]}>Completado</Text>
-                  </View>
-                )}
               </View>
+            </View>
+            <View style={[styles.completionBadge, !completed[task.id] && { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+              <Text style={[styles.completionStar, !completed[task.id] && { color: '#555' }]}>{completed[task.id] ? '⭐' : '☆'}</Text>
             </View>
           </TouchableOpacity>
         ))}
@@ -195,6 +205,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  completionBadge: { position: 'absolute', bottom: 8, right: 8, width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)' },
+  completionStar: { fontSize: 20, color: '#000', fontWeight: '900' },
   cardLeftEmoji: {
     width: 56,
     height: 56,
