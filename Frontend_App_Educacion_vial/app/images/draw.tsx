@@ -272,7 +272,7 @@ export default function ImagesDraw() {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
         // En React Native, localhost NO funciona, usar IP local de tu computadora
-        const baseUrl = 'http://192.168.68.121:3002'; // Tu IP local real
+        const baseUrl = 'http://192.168.100.159:3002'; // Tu IP local real
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {

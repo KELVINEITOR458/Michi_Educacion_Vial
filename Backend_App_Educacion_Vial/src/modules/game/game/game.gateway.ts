@@ -186,8 +186,8 @@ const QUIZ_QUESTIONS: Question[] = [
   cors: {
     origin: [
       'http://localhost:19006',
-      'http://192.168.68.121:19006',
-      'http://192.168.68.121:9999',
+      'http://192.168.100.159:19006',
+      'http://192.168.100.159:9999',
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
@@ -197,7 +197,7 @@ const QUIZ_QUESTIONS: Question[] = [
       'http://localhost:8080',
       'http://localhost:9999',
       'http://localhost:*', // Permitir cualquier puerto localhost
-      'exp://192.168.68.121:19000',
+      'exp://192.168.100.159:19000',
       /^https?:\/\/192\.168\.68\.\d{1,3}:\d+$/,
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

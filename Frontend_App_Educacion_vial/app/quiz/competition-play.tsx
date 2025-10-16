@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import { io, Socket } from 'socket.io-client';
 import questions from './questions';
 
-const SERVER_URL = __DEV__ ? 'http://192.168.68.121:3002' : 'http://localhost:3002';
+const SERVER_URL = __DEV__ ? 'http://192.168.100.159:3002' : 'http://localhost:3002';
 
 type ServerQuestion = {
   id: string;

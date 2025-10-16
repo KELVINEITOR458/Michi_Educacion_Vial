@@ -25,7 +25,7 @@ const colors = {
   gradientSecondary: ['#FF6B6B', '#FF8E53'] as const
 };
 
-const SERVER_URL = __DEV__ ? 'http://192.168.68.121:3002' : 'http://localhost:3002';
+const SERVER_URL = __DEV__ ? 'http://192.168.100.159:3002' : 'http://localhost:3002';
 const MAX_PLAYERS = 4;
 
 interface Player {
