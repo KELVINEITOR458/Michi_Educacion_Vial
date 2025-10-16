@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, Animated, Image, Easing } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -24,27 +24,6 @@ export default function RegisterScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [usernameDirty, setUsernameDirty] = useState(false);
 
-  // Animación fondo
-  const bgBase = useRef(new Animated.Value(0)).current;
-  const bgProgress = Animated.modulo(bgBase, 1);
-  useEffect(() => {
-    const duration = 12000;
-    bgBase.setValue(0);
-    const loop = Animated.loop(
-      Animated.timing(bgBase, {
-        toValue: 1,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-      { resetBeforeIteration: true }
-    );
-    loop.start();
-    return () => {
-      bgBase.stopAnimation();
-      loop.stop();
-    };
-  }, [bgBase]);
 
   const slugFromName = useMemo(() => {
     const s = name
@@ -99,19 +78,9 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.bgContainer} pointerEvents="none">
-          <Animated.Image
+          <Image
             source={require('../../assets/images/fondo_login.png')}
-            style={[styles.bgImage, { transform: [{ translateY: Animated.add(Animated.multiply(bgProgress, height), -height) }] }]}
-            resizeMode="cover"
-          />
-          <Animated.Image
-            source={require('../../assets/images/fondo_login.png')}
-            style={[styles.bgImage, { transform: [{ translateY: Animated.multiply(bgProgress, height) }] }]}
-            resizeMode="cover"
-          />
-          <Animated.Image
-            source={require('../../assets/images/fondo_login.png')}
-            style={[styles.bgImage, { transform: [{ translateY: Animated.add(Animated.multiply(bgProgress, height), height) }] }]}
+            style={styles.bgImage}
             resizeMode="cover"
           />
         </View>
@@ -172,10 +141,10 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: colors.loginBackground },
   container: { flex: 1, justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.loginBackground },
   bgContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backgroundColor: colors.loginBackground },
-  bgImage: { position: 'absolute', width: '100%', height: height + 2 },
+  bgImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   title: { color: colors.white, fontSize: width < 400 ? 26 : 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 16, textShadowColor: colors.shadowDark as any, textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 4 },
   form: { backgroundColor: 'rgba(128,128,128,0.9)', width: '100%', maxWidth: 400, alignSelf: 'center', padding: width < 400 ? 14 : 18, borderRadius: width < 400 ? 18 : 22, shadowColor: colors.shadowDark as any, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 10 },
   inputContainer: { marginBottom: height < 700 ? 15 : 20 },

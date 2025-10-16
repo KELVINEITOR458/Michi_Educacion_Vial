@@ -10,8 +10,31 @@ const { width, height } = Dimensions.get('window');
 export default function Welcome() {
   const router = useRouter();
   const bgBase = useRef(new Animated.Value(0)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
+  const buttonScalesRef = useRef<Record<number, Animated.Value>>({}).current;
   const bgProgress = Animated.modulo(bgBase, 1);
+  const settingsScale = useRef(new Animated.Value(1)).current;
+  const modalOpacity = useRef(new Animated.Value(0)).current;
+  const modalScale = useRef(new Animated.Value(0.9)).current;
+
+  const openSettings = () => {
+    setShowSettingsModal(true);
+    requestAnimationFrame(() => {
+      Animated.parallel([
+        Animated.timing(modalOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.spring(modalScale, { toValue: 1, useNativeDriver: true, friction: 7, tension: 120 }),
+      ]).start();
+    });
+  };
+
+  const closeSettings = (after?: () => void) => {
+    Animated.parallel([
+      Animated.timing(modalOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.spring(modalScale, { toValue: 0.9, useNativeDriver: true, friction: 7, tension: 120 }),
+    ]).start(() => {
+      setShowSettingsModal(false);
+      if (after) after();
+    });
+  };
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<any | null>(null);
@@ -212,12 +235,41 @@ export default function Welcome() {
                 <Text style={styles.statIcon}>🪙</Text>
                 <Text style={styles.statText}>{progress.coins ?? 0}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => setShowSettingsModal(true)}
-              >
-                <Text style={styles.settingsIcon}>⚙️</Text>
-              </TouchableOpacity>
+              <Animated.View style={{ transform: [{ scale: settingsScale }] }}>
+                <TouchableOpacity
+                  style={styles.settingsButton}
+                  onPress={openSettings}
+                  onPressIn={() => {
+                    Animated.spring(settingsScale, {
+                      toValue: 0.92,
+                      useNativeDriver: true,
+                      friction: 5,
+                      tension: 200,
+                    }).start();
+                  }}
+                  onPressOut={() => {
+                    Animated.spring(settingsScale, {
+                      toValue: 1,
+                      useNativeDriver: true,
+                      friction: 5,
+                      tension: 200,
+                    }).start();
+                  }}
+                  activeOpacity={0.9}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Abrir ajustes"
+                >
+                  <LinearGradient
+                    colors={["rgba(255,255,255,0.95)", "rgba(255,255,255,0.6)"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.settingsGradient}
+                  >
+                    <Text style={styles.settingsIcon}>⚙️</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Animated.View>
             </View>
           </View>
 
@@ -235,6 +287,7 @@ export default function Welcome() {
           {/* Niveles */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.islandsContainer}>
             {([1, 2, 3, 4, 5] as const).map((lvl) => {
+              const buttonScale = buttonScalesRef[lvl] || (buttonScalesRef[lvl] = new Animated.Value(1));
               const isUnlocked = progress.unlockedLevels?.includes(lvl) ?? (lvl === 1);
               const isLocked = !isUnlocked;
 
@@ -365,33 +418,45 @@ export default function Welcome() {
         <Modal
           visible={showSettingsModal}
           transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowSettingsModal(false)}
+          animationType="none"
+          onRequestClose={() => closeSettings()}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalTitleContainer}>
-                <Text style={styles.settingsIcon}>⚙️</Text>
+            <Animated.Image
+              source={require('../assets/images/ecim-config.png')}
+              style={[styles.modalTopImage, { opacity: modalOpacity }]}
+              resizeMode="contain"
+            />
+            <Animated.View style={[styles.modalContent, { opacity: modalOpacity, transform: [{ scale: modalScale }] }]}>
+              <LinearGradient colors={["#FFE082", "#FFD54F"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.modalHeader}>
+                <Text style={styles.modalHeaderIcon}>⚙️</Text>
                 <Text style={styles.modalTitle}>Ajustes</Text>
-              </View>
+              </LinearGradient>
 
               <TouchableOpacity
                 style={[styles.modalOption, styles.modalLogoutOption]}
                 onPress={async () => {
-                  setShowSettingsModal(false);
-                  await onLogout();
+                  closeSettings(async () => {
+                    await onLogout();
+                  });
                 }}
+                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar sesión"
               >
                 <Text style={[styles.modalOptionText, styles.modalLogoutText]}>🚪 Cerrar sesión</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.modalOption, styles.modalCancelOption]}
-                onPress={() => setShowSettingsModal(false)}
+                onPress={() => closeSettings()}
+                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar"
               >
                 <Text style={styles.modalCancelText}>❌ Cancelar</Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       </View>
@@ -412,13 +477,14 @@ const styles = StyleSheet.create({
     color: 'black',
     fontSize: width < 400 ? 22 : 28,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginLeft: 0.1,
     textAlignVertical: 'center',
     includeFontPadding: false,
   },
   welcomeCatImage: { width: width < 400 ? 35 : 40, height: width < 400 ? 35 : 40 },
-  settingsButton: { backgroundColor: 'rgba(255, 255, 255, 0.2)', padding: 10, borderRadius: 20, minWidth: 40, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  settingsIcon: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
+  settingsButton: { borderRadius: 24, marginRight: 8 },
+  settingsGradient: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 6 },
+  settingsIcon: { color: '#000000', fontSize: 20, fontWeight: 'bold' },
   statPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.3)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   statIcon: { fontSize: 18, marginRight: 6 },
   statText: { fontSize: 16, fontWeight: 'bold', color: '#000000' },
@@ -461,6 +527,9 @@ const styles = StyleSheet.create({
   modalLogoutText: { color: '#FFFFFF' },
   modalCancelOption: { backgroundColor: '#f0f0f0' },
   modalCancelText: { fontSize: 18, color: '#666', fontWeight: '500' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 14, marginBottom: 12 },
+  modalHeaderIcon: { fontSize: 22, marginRight: 8 },
+  modalTopImage: { position: 'absolute', top: '16%', width: '70%', height: 140 },
   welcomeCard: {
     flexDirection: 'row',
     alignItems: 'center',
