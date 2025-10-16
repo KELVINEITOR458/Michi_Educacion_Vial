@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href, useFocusEffect } from 'expo-router';
 import { colors } from '@/utils/colors';
@@ -84,8 +84,8 @@ export default function ImagesMenuLevel2() {
   const completedCount = Object.values(completed).filter(Boolean).length;
 
   return (
-    <LinearGradient colors={['#90EE90', '#7CB342', colors.gradientVialGreen[0]]} style={styles.container}>
-      <TouchableOpacity onPress={() => router.replace('/minigames/level2' as Href)} style={styles.backBtn} activeOpacity={0.85}>
+    <ImageBackground source={require('../../assets/images/fondo-colorear.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
+      <TouchableOpacity onPress={() => router.replace('/minigames/level2?refresh=1' as Href)} style={styles.backBtn} activeOpacity={0.85}>
         <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
       </TouchableOpacity>
 
@@ -102,7 +102,7 @@ export default function ImagesMenuLevel2() {
       <Text style={styles.sectionTitle}>🎯 Opciones de Colorear Nivel 2</Text>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {TASKS_LEVEL2.map((task) => (
-          <TouchableOpacity key={task.id} style={[styles.card, { position: 'relative' }]} onPress={() => router.push(`/images/draw?task=${task.id}` as Href)}>
+          <TouchableOpacity key={task.id} style={[styles.card, { position: 'relative' }]} onPress={() => router.push(`/images/draw2?task=${task.id}` as Href)}>
             <View style={styles.cardLeftEmoji}>
               <Image
                 source={
@@ -140,7 +140,7 @@ export default function ImagesMenuLevel2() {
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 

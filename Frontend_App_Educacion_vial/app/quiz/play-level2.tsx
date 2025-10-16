@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Dimensions, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/utils/colors';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
@@ -163,6 +163,19 @@ export default function QuizPlayLevel2() {
     }
   };
 
+  const getBackgroundImage = (level: LevelId) => {
+    switch (level) {
+      case 'easy':
+        return require('../../assets/images/quiz-facil-bg.png');
+      case 'medium':
+        return require('../../assets/images/quiz-intermedio-bg.png');
+      case 'hard':
+        return require('../../assets/images/quiz-dificil-bg.png');
+      default:
+        return require('../../assets/images/quiz-facil-bg.png');
+    }
+  };
+
   const handleOptionSelect = async (i: number) => {
     if (showFeedback) return;
 
@@ -237,114 +250,93 @@ export default function QuizPlayLevel2() {
 
   if (!current) {
     return (
-      <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No se encontraron preguntas para este nivel</Text>
-          <TouchableOpacity
-            style={styles.backToLevelsButton}
-            onPress={() => router.replace('/quiz/levels-level2' as Href)}
-          >
-            <LinearGradient colors={colors.gradientSecondary} style={styles.backToLevelsGradient}>
-              <Text style={styles.backToLevelsText}>← Volver a Niveles</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+      <ImageBackground source={getBackgroundImage(levelId)} style={styles.bg} resizeMode="cover">
+        <View style={styles.container}>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>No se encontraron preguntas para este nivel</Text>
+            <TouchableOpacity
+              style={styles.backToLevelsButton}
+              onPress={() => router.replace('/quiz/levels-level2' as Href)}
+            >
+              <LinearGradient colors={colors.gradientSecondary} style={styles.backToLevelsGradient}>
+                <Text style={styles.backToLevelsText}>← Volver a Niveles</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
-      </LinearGradient>
+      </ImageBackground>
     );
   }
 
   return (
-    <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.levelTitle}>
-          {getLevelEmoji(levelId)} {getLevelTitle(levelId)}
-        </Text>
-        <Text style={styles.levelSubtitle}>Educación Vial Nivel 2</Text>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
-        <Text style={styles.progressText}>
-          Pregunta {index + 1} de 5
-        </Text>
-      </View>
-
-      {/* Question Card */}
-      <View style={styles.card}>
-        {/* Imagen de la pregunta (completamente opcional) */}
-        <QuestionImage imageName={current.image} />
-
-        <Text style={styles.question}>{current.q}</Text>
-
-        {/* Options */}
-        <View style={styles.optionsContainer}>
-          {current.options.map((option, i) => {
-            const isSelected = selectedOption === i;
-            const isAnswer = i === current.answer;
-            let optionStyle = styles.option;
-
-            if (showFeedback) {
-              if (isSelected && isCorrect) {
-                // ✅ Respuesta correcta seleccionada
-                optionStyle = {...styles.option, ...styles.correctOption};
-              } else if (isSelected && !isCorrect) {
-                // ❌ Respuesta incorrecta seleccionada
-                optionStyle = {...styles.option, ...styles.incorrectOption};
-              }
-              // No mostrar la respuesta correcta si se falló
-            }
-
-            return (
-              <TouchableOpacity
-                key={i}
-                style={[
-                  optionStyle,
-                  isSelected && styles.selectedOption,
-                ]}
-                onPress={() => handleOptionSelect(i)}
-                disabled={showFeedback}
-                activeOpacity={0.8}
-              >
-                <Text style={[
-                  styles.optionText,
-                  (showFeedback && isSelected && isCorrect) && styles.correctText,
-                  (showFeedback && isSelected && !isCorrect) && styles.incorrectText
-                ]}>
-                  {option}
-                </Text>
-                {showFeedback && isSelected && isCorrect && (
-                  <Text style={styles.feedbackIcon}>✓</Text>
-                )}
-                {showFeedback && isSelected && !isCorrect && (
-                  <Text style={styles.feedbackIcon}>✗</Text>
-                )}
-                {/* No mostrar ✓ en la respuesta correcta si se falló */}
-              </TouchableOpacity>
-            );
-          })}
+    <ImageBackground source={getBackgroundImage(levelId)} style={styles.bg} resizeMode="cover">
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.levelTitle}>
+            {getLevelEmoji(levelId)} {getLevelTitle(levelId)}
+          </Text>
         </View>
-      </View>
-      <View style={styles.scoreContainer}>
-        <Text style={styles.score}>Puntuación: {score}</Text>
-      </View>
 
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.back()}
-        activeOpacity={0.8}
-      >
-        <LinearGradient colors={colors.gradientSecondary} style={styles.backButtonGradient}>
-          <Text style={styles.backButtonText}>← Volver</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </LinearGradient>
+        {/* Progress Bar - Top Right */}
+        <View style={styles.progressBarContainer}>
+          <View style={[styles.progressBar, { width: `${progress}%` }]} />
+          <Text style={styles.progressText}>
+            {index + 1}/5
+          </Text>
+        </View>
+
+        {/* Question Card */}
+        <View style={styles.questionCard}>
+          <Text style={styles.question}>{current.q}</Text>
+          <QuestionImage imageName={current.image} />
+        </View>
+
+        {/* Options Card */}
+        <View style={styles.optionsCard}>
+          <View style={styles.optionsContainer}>
+            {current.options.map((option, i) => {
+              const isSelected = selectedOption === i;
+              let optionStyle = styles.option;
+              if (showFeedback) {
+                if (isSelected && isCorrect) {
+                  optionStyle = { ...styles.option, ...styles.correctOption };
+                } else if (isSelected && !isCorrect) {
+                  optionStyle = { ...styles.option, ...styles.incorrectOption };
+                }
+              } else if (isSelected) {
+                optionStyle = { ...styles.option, ...styles.selectedOption };
+              }
+              return (
+                <TouchableOpacity key={i} style={optionStyle} onPress={() => handleOptionSelect(i)} disabled={showFeedback} activeOpacity={0.8}>
+                  <Text style={[
+                    styles.optionText,
+                    (showFeedback && isSelected && isCorrect) && styles.correctText,
+                    (showFeedback && isSelected && !isCorrect) && styles.incorrectText
+                  ]}>{option}</Text>
+                  {showFeedback && isSelected && isCorrect && (<Text style={styles.feedbackIcon}>✓</Text>)}
+                  {showFeedback && isSelected && !isCorrect && (<Text style={styles.feedbackIcon}>✗</Text>)}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.scoreContainer}>
+          <Text style={styles.score}>Puntuación: {score}</Text>
+        </View>
+
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
+          <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
+        </TouchableOpacity>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  bg: { flex: 1 },
   container: {
     flex: 1,
     padding: 20,
@@ -400,13 +392,17 @@ const styles = StyleSheet.create({
   },
   // Progress Bar
   progressBarContainer: {
-    height: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    marginBottom: 24,
-    marginTop: 16,
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    height: 28,
+    width: 70,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 14,
     overflow: 'hidden',
-    position: 'relative',
+    zIndex: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   progressBar: {
     height: '100%',
@@ -416,14 +412,32 @@ const styles = StyleSheet.create({
   progressText: {
     position: 'absolute',
     width: '100%',
+    height: '100%',
     textAlign: 'center',
     color: colors.white,
-    fontWeight: '600',
-    lineHeight: 24,
+    fontWeight: '700',
+    lineHeight: 28,
+    fontSize: 11,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   // Question Card
-  card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  questionCard: {
+    backgroundColor: 'rgb(63, 62, 62)',
+    borderRadius: 20,
+    padding: 0,
+    shadowColor: colors.shadowDark as any,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  // Options Card
+  optionsCard: {
+    backgroundColor: 'rgb(65, 62, 62)',
     borderRadius: 20,
     padding: 24,
     shadowColor: colors.shadowDark as any,
@@ -435,29 +449,32 @@ const styles = StyleSheet.create({
   },
   question: {
     fontSize: width < 400 ? 18 : 20,
-    marginBottom: 24,
     color: colors.white,
     fontWeight: '600',
     lineHeight: 28,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
   // Imagen de la pregunta
   imageContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 10,
+    width: '100%',
+    marginBottom: 0,
+    paddingHorizontal: 0,
   },
   questionImage: {
-    width: width * 0.5, // ✅ Reducir tamaño para carga más rápida
-    height: width * 0.3, // ✅ Reducir altura para carga más rápida
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: '100%',
+    height: width * 0.4,
+    borderRadius: 0,
+    backgroundColor: 'rgba(119, 116, 116, 0.3)',
   },
   // Options
   optionsContainer: {
     marginTop: 8,
   },
   option: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.24)',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -474,28 +491,53 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   selectedOption: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   correctOption: {
-    backgroundColor: 'rgba(40, 167, 69, 0.2)',
-    borderColor: colors.success,
+    backgroundColor: 'rgba(76, 175, 80, 0.8)',
+    borderColor: '#4CAF50',
+    borderWidth: 3,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 8,
   },
   incorrectOption: {
-    backgroundColor: 'rgba(220, 53, 69, 0.2)',
-    borderColor: colors.error || '#dc3545',
+    backgroundColor: 'rgba(244, 67, 54, 0.8)',
+    borderColor: '#F44336',
+    borderWidth: 3,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 8,
   },
   correctText: {
-    color: colors.success || '#28a745',
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 17,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   incorrectText: {
-    color: colors.error || '#dc3545',
-    textDecorationLine: 'line-through',
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 17,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   feedbackIcon: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   // Score
   scoreContainer: {
@@ -509,24 +551,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
   },
-  // Back button
-  backButton: {
-    position: 'absolute',
-    top: 45,
-    left: 20,
-    zIndex: 10,
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: 110,
-  },
-  backButtonGradient: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  // Back image button
+  backBtn: { position: 'absolute', top: 20, left: 16, zIndex: 10 },
+  backImg: { width: 96, height: 84 },
 });

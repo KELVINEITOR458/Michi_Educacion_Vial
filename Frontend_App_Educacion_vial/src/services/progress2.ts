@@ -81,14 +81,31 @@ export async function awardBicycleLevel2Completion(pointsEarned = 10) {
   const l = 2;
 
   try {
+    const res = await apply({
+      addPoints: pointsEarned,
+      addCoinsIfNoPoints: Math.floor(pointsEarned / 2),
+      addCompleted: [`${l}_paseo_bici`, `${l}_2`],
+    });
+    await maybeUnlockLevel3IfReady();
+    return res;
+  } catch (error) {
+    console.error('❌ Error in awardBicycleLevel2Completion:', error);
+    // No lanzar el error para no interrumpir el flujo del juego
+    return null;
+  }
+}
+
+export async function awardBicycleLevel3Completion(pointsEarned = 10) {
+  const l = 3;
+
+  try {
     return await apply({
       addPoints: pointsEarned,
       addCoinsIfNoPoints: Math.floor(pointsEarned / 2),
       addCompleted: [`${l}_paseo_bici`, `${l}_2`],
     });
   } catch (error) {
-    console.error('❌ Error in awardBicycleLevel2Completion:', error);
-    // No lanzar el error para no interrumpir el flujo del juego
+    console.error('❌ Error in awardBicycleLevel3Completion:', error);
     return null;
   }
 }
@@ -111,6 +128,26 @@ export async function awardColoringTaskCompletion(task: 'cat' | 'patrol' | 'sema
   });
 }
 
+// Nivel 2 - colorear: registra tareas individuales 2_coloring_*
+export async function awardColoringTaskLevel2Completion(task: 'cat' | 'patrol' | 'semaforo', pointsEarned = 8) {
+  const l = 2;
+  return apply({
+    addPoints: pointsEarned,
+    addCoinsIfNoPoints: Math.floor(pointsEarned / 2),
+    addCompleted: [`${l}_coloring_${task}`],
+  });
+}
+
+// Nivel 3 - colorear: registra tareas individuales 3_coloring_*
+export async function awardColoringTaskLevel3Completion(task: 'cat' | 'patrol' | 'semaforo', pointsEarned = 8) {
+  const l = 3;
+  return apply({
+    addPoints: pointsEarned,
+    addCoinsIfNoPoints: Math.floor(pointsEarned / 2),
+    addCompleted: [`${l}_coloring_${task}`],
+  });
+}
+
 // Comprueba si las 3 tareas de colorear están completas y, si falta, añade la clave resumen '1_colorear_divertidamente'
 export async function maybeAwardColoringSetStar() {
   const current = await ProgressApi.get();
@@ -125,6 +162,57 @@ export async function maybeAwardColoringSetStar() {
   }
 
   return current;
+}
+
+// Nivel 2 - añade resumen 2_colorear_divertidamente si tiene las 3 tareas
+export async function maybeAwardColoringSetStarLevel2() {
+  const current = await ProgressApi.get();
+  const done: string[] = Array.isArray(current.completedGames) ? current.completedGames : [];
+
+  const hasAllTasks = ['2_coloring_cat', '2_coloring_patrol', '2_coloring_semaforo'].every((k) => done.includes(k));
+  const hasSummary = done.includes('2_colorear_divertidamente') || done.includes('2_6');
+
+  if (hasAllTasks && !hasSummary) {
+    const res = await apply({ addPoints: 0, addCompleted: ['2_colorear_divertidamente', '2_6'] });
+    await maybeUnlockLevel3IfReady();
+    return res;
+  }
+
+  return current;
+}
+
+// Nivel 3 - añade resumen 3_colorear_divertidamente si tiene las 3 tareas
+export async function maybeAwardColoringSetStarLevel3() {
+  const current = await ProgressApi.get();
+  const done: string[] = Array.isArray(current.completedGames) ? current.completedGames : [];
+
+  const hasAllTasks = ['3_coloring_cat', '3_coloring_patrol', '3_coloring_semaforo'].every((k) => done.includes(k));
+  const hasSummary = done.includes('3_colorear_divertidamente') || done.includes('3_6');
+
+  if (hasAllTasks && !hasSummary) {
+    return apply({ addPoints: 0, addCompleted: ['3_colorear_divertidamente', '3_6'] });
+  }
+
+  return current;
+}
+
+// Desbloquea el Nivel 3 cuando las 3 actividades del Nivel 2 están completas
+export async function maybeUnlockLevel3IfReady() {
+  try {
+    const current = await ProgressApi.get();
+    const done: string[] = Array.isArray(current.completedGames) ? current.completedGames : [];
+    const hasColoring = done.includes('2_colorear_divertidamente') || done.includes('2_6');
+    const hasQuiz = done.includes('2_quiz_vial') || done.includes('2_1');
+    const hasBicycle = done.includes('2_paseo_bici') || done.includes('bicycle_completed_level2') || done.includes('2_2');
+
+    if (hasColoring && hasQuiz && hasBicycle) {
+      const unlocked = Array.isArray(current.unlockedLevels) ? [...current.unlockedLevels] : [1];
+      if (!unlocked.includes(3)) {
+        unlocked.push(3);
+        await ProgressApi.update({ unlockedLevels: unlocked });
+      }
+    }
+  } catch (e) {}
 }
 
 // Elimina la clave resumen '1_colorear_divertidamente' si ya no se cumplen los requisitos

@@ -82,6 +82,8 @@ export default function ImagesGallery() {
   // Función para determinar a dónde regresar según el origen
   const getBackDestination = () => {
     switch (fromParam) {
+      case 'level3':
+        return '/images/index-level3';
       case 'level2':
         return '/images/index-level2';
       case 'level1':

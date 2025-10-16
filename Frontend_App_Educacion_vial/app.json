@@ -4,7 +4,7 @@
     "slug": "App_Educacion_vial",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logoPrincipal.png",
     "scheme": "appeducacionvial",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

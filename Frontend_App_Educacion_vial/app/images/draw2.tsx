@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import ViewShot, { captureRef } from 'react-native-view-shot';
+import Svg, { Path } from 'react-native-svg';
 import { colors } from '../../src/utils/colors';
 import { ImagesApi } from '../../src/services/images';
 import { AuthService } from '../../src/services/auth';
-import { awardColoringTaskCompletion, maybeAwardColoringSetStar } from '../../src/services/progress2';
+import { awardColoringTaskCompletion, maybeAwardColoringSetStar, awardColoringTaskLevel2Completion, maybeAwardColoringSetStarLevel2 } from '../../src/services/progress2';
 import { ProgressApi } from '../../src/services/progress';
 const { width, height } = Dimensions.get('window');
 
@@ -18,6 +19,7 @@ const TASK_IMAGES: Record<TaskId, any> = {
 };
 
 const COLORS = [
+  '#9E9E9E', // Gris (nivel 1 UX)
   '#FF6B6B', // Rojo
   '#4ECDC4', // Turquesa
   '#45B7D1', // Azul
@@ -315,9 +317,9 @@ export default function ImagesDraw2() {
         const result = await response.json();
         // ✅ Marcar progreso después de guardar exitosamente - CAMBIADO PARA NIVEL 2
         const level1TaskId = taskParam.replace('-level2', '') as 'cat' | 'patrol' | 'semaforo';
-        await awardColoringTaskCompletion(level1TaskId, 8); // ✅ Progreso nivel 2
+        await awardColoringTaskLevel2Completion(level1TaskId, 8); // Registrar 2_coloring_*
         setCompletedTasks(prev => ({ ...prev, [taskParam]: true }));
-        await maybeAwardColoringSetStar();
+        await maybeAwardColoringSetStarLevel2(); // Añadir 2_colorear_divertidamente si corresponde
         Alert.alert('¡Guardado!', 'Tu dibujo del Nivel 2 se ha guardado y se registró tu progreso.', [
           { text: 'Ir a Galería', onPress: () => router.push('/images/gallery?from=level2') },
         ]);
@@ -345,9 +347,9 @@ export default function ImagesDraw2() {
                 try {
                   // Guardar progreso localmente
                   const level1TaskId = taskParam.replace('-level2', '') as 'cat' | 'patrol' | 'semaforo';
-                  await awardColoringTaskCompletion(level1TaskId, 8); // ✅ Progreso nivel 2
+                  await awardColoringTaskLevel2Completion(level1TaskId, 8); // Registrar 2_coloring_*
                   setCompletedTasks(prev => ({ ...prev, [taskParam]: true }));
-                  await maybeAwardColoringSetStar();
+                  await maybeAwardColoringSetStarLevel2();
                   Alert.alert('¡Guardado Localmente!', 'Tu progreso del Nivel 2 se ha guardado en el dispositivo.\n\nCuando el servidor esté disponible, podrás sincronizar tus dibujos.', [
                     { text: 'OK' },
                   ]);
@@ -390,7 +392,7 @@ export default function ImagesDraw2() {
   const taskInfo = getTaskInfo(taskParam);
 
   return (
-    <View style={styles.container}>
+    <ImageBackground source={require('../../assets/images/fondo-draw.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/images/index-level2' as Href)} style={styles.backBtn} activeOpacity={0.85}>
@@ -430,26 +432,51 @@ export default function ImagesDraw2() {
                 setImageLoaded(false);
               }}
             />
-            {/* Drawing Paths - ENCIMA de la imagen base */}
-            {pathsRef.current.map((path, index) => (
-              <View key={`${index}-${renderKey}`} style={styles.pathContainer}>
-                {path.points.map((point, pointIndex) => (
-                  <View
-                    key={`${pointIndex}-${renderKey}`}
-                    style={[
-                      styles.pathPoint,
-                      {
-                        backgroundColor: path.color,
-                        width: path.size,
-                        height: path.size,
-                        left: point.x - path.size / 2,
-                        top: point.y - path.size / 2,
-                      }
-                    ]}
+            {/* Drawing Paths - SVG suavizado como en nivel 1 */}
+            <Svg style={styles.svgOverlay}>
+              {pathsRef.current.map((path, index) => {
+                const pts = path.points;
+                if (!pts || pts.length === 0) return null;
+                if (pts.length === 1) {
+                  const p = pts[0];
+                  return (
+                    <Path key={`${index}-${renderKey}`}
+                      d={`M ${p.x} ${p.y} L ${p.x + 0.01} ${p.y + 0.01}`}
+                      stroke={path.color}
+                      strokeWidth={path.size}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  );
+                }
+                const commands: string[] = [];
+                commands.push(`M ${pts[0].x} ${pts[0].y}`);
+                for (let i = 1; i < pts.length - 1; i++) {
+                  const p0 = pts[i - 1];
+                  const p1 = pts[i];
+                  const p2 = pts[i + 1];
+                  const nx = (p1.x + p2.x) / 2;
+                  const ny = (p1.y + p2.y) / 2;
+                  commands.push(`Q ${p1.x} ${p1.y} ${nx} ${ny}`);
+                }
+                if (pts.length === 2) {
+                  commands.splice(1, commands.length, `L ${pts[1].x} ${pts[1].y}`);
+                }
+                const d = commands.join(' ');
+                return (
+                  <Path
+                    key={`${index}-${renderKey}`}
+                    d={d}
+                    stroke={path.color}
+                    strokeWidth={path.size}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
                   />
-                ))}
-              </View>
-            ))}
+                );
+              })}
+            </Svg>
             {/* Overlay Image - ENCIMA de los trazos para mantener bordes visibles */}
             {imageLoaded && !saving && (
               <View style={styles.overlayContainer} pointerEvents="none">
@@ -524,7 +551,7 @@ export default function ImagesDraw2() {
       <TouchableOpacity style={[styles.saveBtn, { opacity: saving ? 0.5 : 1 }]} onPress={onSave} disabled={saving} activeOpacity={0.85}>
         <Image source={require('../../assets/images/btn-guardar.png')} style={styles.saveImg} resizeMode="contain" />
       </TouchableOpacity>
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -561,7 +588,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
-  backBtn: { position: 'absolute', top: 0, left: 16, zIndex: 10 },
+  backBtn: { position: 'absolute', top: -30, left: 16, zIndex: 10 },
   backImg: { width: 96, height: 84 },
   backButtonText: {
     color: colors.white,
@@ -603,17 +630,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 1, // ✅ Imagen base DEBAJO de los trazos
   },
-  pathContainer: {
+  svgOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 10, // ✅ Trazos ENCIMA de la imagen base
-  },
-  pathPoint: {
-    position: 'absolute',
-    borderRadius: 50,
+    zIndex: 15,
   },
   toolsContainer: {
     maxHeight: height * 0.3,

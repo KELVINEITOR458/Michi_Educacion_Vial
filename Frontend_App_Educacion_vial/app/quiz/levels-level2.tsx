@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/utils/colors';
 import { useRouter, type Href } from 'expo-router';
@@ -113,16 +113,16 @@ export default function QuizLevelsLevel2() {
 
   if (loading) {
     return (
-      <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
+      <ImageBackground source={require('../../assets/images/bg-quiz.png')} style={styles.container} resizeMode="cover">
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Cargando niveles...</Text>
         </View>
-      </LinearGradient>
+      </ImageBackground>
     );
   }
 
   return (
-    <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
+    <ImageBackground source={require('../../assets/images/bg-quiz.png')} style={styles.container} resizeMode="cover">
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>🧠 Quiz Vial Nivel 2</Text>
@@ -231,7 +231,7 @@ export default function QuizLevelsLevel2() {
       >
         <Image source={require('../../assets/images/btn-volver.png')} style={{ width: 96, height: 84 }} resizeMode="contain" />
       </TouchableOpacity>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 

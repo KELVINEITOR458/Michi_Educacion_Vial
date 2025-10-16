@@ -34,14 +34,16 @@ export default function QuizLearning() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity 
-        style={styles.btn} 
+      <TouchableOpacity
+        style={styles.imageBtn}
         onPress={() => router.push('/quiz/levels' as Href)}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
       >
-        <LinearGradient colors={colors.gradientSuccess} style={styles.btnGradient}>
-          <Text style={styles.btnText}>¡Listo! Empezar Quiz</Text>
-        </LinearGradient>
+        <Image
+          source={require('../../assets/images/quiz/boton-play.png')}
+          style={styles.btnImage}
+          resizeMode="contain"
+        />
       </TouchableOpacity>
     </ImageBackground>
   );
@@ -137,5 +139,20 @@ const styles = StyleSheet.create({
     color: colors.white, 
     fontWeight: '700',
     fontSize: 16,
+  },
+  // Botón-imagen estilo nivel 1
+  imageBtn: {
+    marginTop: 8,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: colors.shadowDark as any,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  btnImage: {
+    width: '100%',
+    height: width < 400 ? width * 0.35 : width * 0.32,
   },
 });

@@ -119,12 +119,7 @@ const QuestionImage = ({ imageName }: { imageName?: string }) => {
         style={styles.questionImage}
         resizeMode="stretch"
         fadeDuration={300} // ✅ Animación suave de carga
-        onError={(error) => {
-          console.log('❌ Error cargando imagen:', error);
-        }}
-        onLoad={() => {
-          console.log('✅ Imagen cargada exitosamente');
-        }}
+       
       />
     </View>
   );

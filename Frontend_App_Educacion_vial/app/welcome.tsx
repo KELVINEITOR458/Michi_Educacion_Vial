@@ -359,6 +359,8 @@ export default function Welcome() {
                               setTimeout(() => {
                                 if (lvl === 2) {
                                   router.push('/minigames/level2' as Href);
+                                } else if (lvl === 3) {
+                                  router.push('/minigames/level3' as Href);
                                 } else {
                                   router.push('/minigames/level1' as Href);
                                 }
