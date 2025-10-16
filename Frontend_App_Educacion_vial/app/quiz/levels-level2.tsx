@@ -5,6 +5,7 @@ import { colors } from '@/utils/colors';
 import { useRouter, type Href } from 'expo-router';
 import { Dimensions } from 'react-native';
 import { QuizProgressService, type QuizProgress } from '@/services/quizProgress';
+import { QuizProgressLevel2Service } from '@/services/quizProgressLevel2';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,7 +17,7 @@ export default function QuizLevelsLevel2() {
     medium: { unlocked: boolean; completed: boolean; score: number };
     hard: { unlocked: boolean; completed: boolean; score: number };
   }>({
-    easy: { unlocked: true, completed: false, score: 0 },
+    easy: { unlocked: false, completed: false, score: 0 },
     medium: { unlocked: false, completed: false, score: 0 },
     hard: { unlocked: false, completed: false, score: 0 },
   });
@@ -42,16 +43,21 @@ export default function QuizLevelsLevel2() {
         setProgress(quizProgress);
       }
 
-      // Cargar estados de todos los niveles
-      const easyStatus = await QuizProgressService.getLevelStatus('easy');
-      const mediumStatus = await QuizProgressService.getLevelStatus('medium');
-      const hardStatus = await QuizProgressService.getLevelStatus('hard');
+      // Cargar estados de nivel 2 (almacenado aparte)
+      const easyStatus = await QuizProgressLevel2Service.getLevelStatus('easy');
+      const mediumStatus = await QuizProgressLevel2Service.getLevelStatus('medium');
+      const hardStatus = await QuizProgressLevel2Service.getLevelStatus('hard');
 
-      setLevelStatuses({
-        easy: easyStatus,
-        medium: mediumStatus,
-        hard: hardStatus,
-      });
+      // 🔒 Si el Nivel 1 aún no está completado, todos los niveles del Nivel 2 quedan bloqueados inicialmente
+      const gated = quizProgress.level1Completed
+        ? { easy: easyStatus, medium: mediumStatus, hard: hardStatus }
+        : {
+            easy: { ...easyStatus, unlocked: false },
+            medium: { ...mediumStatus, unlocked: false },
+            hard: { ...hardStatus, unlocked: false },
+          };
+
+      setLevelStatuses(gated);
     } catch (error) {
       console.error('❌ Error loading quiz progress:', error);
       // Estado por defecto en caso de error
@@ -100,7 +106,6 @@ export default function QuizLevelsLevel2() {
 
   const handleStartQuiz = async (levelId: 'easy' | 'medium' | 'hard') => {
     const status = levelStatuses[levelId];
-
     if (status.unlocked) {
       router.push(`/quiz/play-level2?level=${levelId}` as Href);
     }
@@ -221,7 +226,7 @@ export default function QuizLevelsLevel2() {
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.replace('/minigames/level2' as Href)}
+        onPress={() => router.replace('/quiz/main-level2' as Href)}
         activeOpacity={0.8}
       >
         <Image source={require('../../assets/images/btn-volver.png')} style={{ width: 96, height: 84 }} resizeMode="contain" />

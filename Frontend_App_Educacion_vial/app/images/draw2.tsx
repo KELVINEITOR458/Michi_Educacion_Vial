@@ -1,23 +1,23 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import ViewShot, { captureRef } from 'react-native-view-shot';
-import Svg, { Path } from 'react-native-svg';
 import { colors } from '../../src/utils/colors';
 import { ImagesApi } from '../../src/services/images';
 import { AuthService } from '../../src/services/auth';
 import { awardColoringTaskCompletion, maybeAwardColoringSetStar } from '../../src/services/progress2';
 import { ProgressApi } from '../../src/services/progress';
 const { width, height } = Dimensions.get('window');
-type TaskId = 'cat' | 'patrol' | 'semaforo';
+
+type TaskId = 'cat-level2' | 'patrol-level2' | 'semaforo-level2';
 const TASK_IMAGES: Record<TaskId, any> = {
-  cat: require('../../assets/images/gato-policia-bordes.png'), // ✅ Gato policía con bordes
-  patrol: require('../../assets/images/patrulla-bordes.png'),   // ✅ Patrulla con bordes
-  semaforo: require('../../assets/images/semaforo-bordes.png'), // ✅ Semáforo con bordes
+  'cat-level2': require('../../assets/images/gato-policia-bordes.png'), // ✅ Gato policía con bordes
+  'patrol-level2': require('../../assets/images/patrulla-bordes.png'),   // ✅ Patrulla con bordes
+  'semaforo-level2': require('../../assets/images/semaforo-bordes.png'), // ✅ Semáforo con bordes
 };
+
 const COLORS = [
-  '#9E9E9E', // Gris
   '#FF6B6B', // Rojo
   '#4ECDC4', // Turquesa
   '#45B7D1', // Azul
@@ -39,25 +39,27 @@ const COLORS = [
   '#3F51B5', // Índigo
   '#8BC34A', // Verde lima
 ];
-export default function ImagesDraw() {
+
+export default function ImagesDraw2() {
   const router = useRouter();
   const params = useLocalSearchParams<{ task?: string }>();
-  const taskParam = (params.task as TaskId) || 'cat';
+  const taskParam = (params.task as TaskId) || 'cat-level2';
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [brushSize, setBrushSize] = useState(8);
-  const [title, setTitle] = useState('Mi dibujo');
+  const [title, setTitle] = useState('Mi dibujo nivel 2');
   const [saving, setSaving] = useState(false);
   const [renderKey, setRenderKey] = useState(0); // ✅ Forzar re-renderizado
   const [isDrawing, setIsDrawing] = useState(false); // ✅ Evitar dibujo automático
-  const [completedTasks, setCompletedTasks] = useState<Record<TaskId, boolean>>({ cat: false, patrol: false, semaforo: false }); // ✅ Estado de tareas completadas
+  const [completedTasks, setCompletedTasks] = useState<Record<TaskId, boolean>>({ 'cat-level2': false, 'patrol-level2': false, 'semaforo-level2': false }); // ✅ Estado de tareas completadas
   const [imageLoaded, setImageLoaded] = useState(false); // ✅ Estado de carga de imagen base
   const canvasRef = useRef<View>(null);
   const viewShotRef = useRef<ViewShot>(null);
   const pathsRef = useRef<Array<{ color: string; size: number; points: Array<{ x: number; y: number }> }>>([]);
   const lastSvgMarkupRef = useRef<string | null>(null);
+
   // ✅ Cargar estado de tareas completadas al iniciar
   const loadCompletedTasks = useCallback(async () => {
-    const initial: Record<TaskId, boolean> = { cat: false, patrol: false, semaforo: false };
+    const initial: Record<TaskId, boolean> = { 'cat-level2': false, 'patrol-level2': false, 'semaforo-level2': false };
 
     try {
       const images = await ImagesApi.list();
@@ -72,9 +74,10 @@ export default function ImagesDraw() {
       try {
         const progress = await ProgressApi.get();
         const list: string[] = Array.isArray(progress.completedGames) ? progress.completedGames : [];
-        initial.cat = list.includes('1_coloring_cat');
-        initial.patrol = list.includes('1_coloring_patrol');
-        initial.semaforo = list.includes('1_coloring_semaforo');
+        // Cambiar a nivel 2
+        initial['cat-level2'] = list.includes('2_coloring_cat');
+        initial['patrol-level2'] = list.includes('2_coloring_patrol');
+        initial['semaforo-level2'] = list.includes('2_coloring_semaforo');
       } catch (_progressError) {
         // Ignorar
       }
@@ -92,6 +95,7 @@ export default function ImagesDraw() {
       loadCompletedTasks();
     }, [loadCompletedTasks])
   );
+
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -119,28 +123,8 @@ export default function ImagesDraw() {
       if (locationX >= 0 && locationY >= 0 && locationX <= width && locationY <= height) {
         const currentPath = pathsRef.current[pathsRef.current.length - 1];
         if (currentPath) {
-          // Umbral dinámico según grosor para reducir puntos y mejorar rendimiento
-          const last = currentPath.points[currentPath.points.length - 1];
-          const dx = locationX - last.x;
-          const dy = locationY - last.y;
-          const minDist = Math.max(2, brushSize * 0.6);
-          if ((dx * dx + dy * dy) > (minDist * minDist)) {
-            currentPath.points.push({ x: locationX, y: locationY });
-            // Limitar tamaño por trazo para no degradar el rendimiento
-            const MAX_POINTS_PER_PATH = 1500;
-            if (currentPath.points.length > MAX_POINTS_PER_PATH) {
-              // Downsample conservando 1 de cada 2 puntos
-              currentPath.points = currentPath.points.filter((_, i) => i % 2 === 0);
-            }
-          }
-          // Agrupar repintados a un frame usando requestAnimationFrame
-          if (!(onSave as any)._rafScheduled) {
-            (onSave as any)._rafScheduled = true;
-            requestAnimationFrame(() => {
-              (onSave as any)._rafScheduled = false;
-              setRenderKey(prev => prev + 1);
-            });
-          }
+          currentPath.points.push({ x: locationX, y: locationY });
+          setRenderKey(prev => prev + 1); // ✅ Forzar re-renderizado en tiempo real
         }
       }
     },
@@ -151,10 +135,12 @@ export default function ImagesDraw() {
       setIsDrawing(false); // ✅ Terminar dibujo si se interrumpe
     },
   });
+
   const clearCanvas = () => {
     pathsRef.current = []; // ✅ Limpiar automáticamente sin confirmación
     setRenderKey(prev => prev + 1); // ✅ Forzar re-renderizado
   };
+
   const undoLast = () => {
     if (pathsRef.current.length > 0) {
       const lastPath = pathsRef.current[pathsRef.current.length - 1];
@@ -173,6 +159,7 @@ export default function ImagesDraw() {
       setRenderKey(prev => prev + 1); // ✅ Forzar re-renderizado
     }
   };
+
   // ✅ Función de respaldo mejorada - crear imagen SVG con los trazos
   const captureCanvasImage = async (): Promise<string | null> => {
     if (!canvasRef.current) {
@@ -190,6 +177,7 @@ export default function ImagesDraw() {
       return null;
     }
   };
+
   const createFallbackImage = async (): Promise<string> => {
     // Crear un SVG que represente visualmente el dibujo
     const svgWidth = 400;
@@ -214,7 +202,7 @@ export default function ImagesDraw() {
         <rect width="100%" height="100%" fill="white"/>
         ${svgPaths}
         <text x="10" y="${svgHeight - 10}" font-family="Arial" font-size="12" fill="#999">
-          ${taskParam} - ${pathsRef.current.length} trazos
+          ${taskParam} nivel 2 - ${pathsRef.current.length} trazos
         </text>
       </svg>
     `;
@@ -224,6 +212,7 @@ export default function ImagesDraw() {
     const dataUrl = `data:image/svg+xml;base64,${svgBase64}`;
     return dataUrl;
   };
+
   const onSave = async () => {
     try {
       setSaving(true);
@@ -261,14 +250,14 @@ export default function ImagesDraw() {
       } as any;
       // Campos básicos requeridos por el backend
       formData.append('image', imageFile);
-      formData.append('title', title.trim() || 'Mi Dibujo');
-      formData.append('description', `Dibujo coloreado de ${taskParam}`);
-      // Campos específicos que el backend REQUIERE
+      formData.append('title', title.trim() || 'Mi Dibujo Nivel 2');
+      formData.append('description', `Dibujo coloreado de ${taskParam} - Nivel 2`);
+      // Campos específicos que el backend REQUIERE - CAMBIADOS PARA NIVEL 2
       formData.append('taskId', taskParam);
       formData.append('baseImage', taskParam);
       formData.append('category', 'educational');
       formData.append('type', 'coloring');
-      formData.append('level', '1');
+      formData.append('level', '2'); // ✅ NIVEL 2
       formData.append('status', 'completed');
       // Metadatos de la imagen
       formData.append('imageMimeType', mimeType);
@@ -288,15 +277,13 @@ export default function ImagesDraw() {
         totalPoints: pathsRef.current.reduce((sum, path) => sum + path.points.length, 0),
         taskParam,
         timestamp: Date.now(),
-        version: '1.0'
+        version: '2.0' // ✅ Versión 2.0 para nivel 2
       }));
       try {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
-        // En React Native, usar API_BASE_URL configurado en app.json; fallback al DEFAULT_BASE_URL de ApiClient
-        const configured = (require('expo-constants').default.expoConfig?.extra?.API_BASE_URL as string) || undefined;
-        const { ApiClient } = require('../../src/services/api');
-        const baseUrl = configured || new ApiClient().request ? (new ApiClient() as any).baseUrl || 'http://192.168.100.22:3002' : 'http://192.168.100.22:3002';
+        // En React Native, localhost NO funciona, usar IP local de tu computadora
+        const baseUrl = 'http://192.168.68.121:3002'; // Tu IP local real
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {
@@ -326,12 +313,13 @@ export default function ImagesDraw() {
           throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         const result = await response.json();
-        // ✅ Marcar progreso después de guardar exitosamente
-        await awardColoringTaskCompletion(taskParam, 8);
+        // ✅ Marcar progreso después de guardar exitosamente - CAMBIADO PARA NIVEL 2
+        const level1TaskId = taskParam.replace('-level2', '') as 'cat' | 'patrol' | 'semaforo';
+        await awardColoringTaskCompletion(level1TaskId, 8); // ✅ Progreso nivel 2
         setCompletedTasks(prev => ({ ...prev, [taskParam]: true }));
         await maybeAwardColoringSetStar();
-        Alert.alert('¡Guardado!', 'Tu dibujo se ha guardado y se registró tu progreso.', [
-          { text: 'Ir a Galería', onPress: () => router.push('/images/gallery?from=level1') },
+        Alert.alert('¡Guardado!', 'Tu dibujo del Nivel 2 se ha guardado y se registró tu progreso.', [
+          { text: 'Ir a Galería', onPress: () => router.push('/images/gallery?from=level2') },
         ]);
       } catch (serverError: any) {
         // Show user-friendly error message
@@ -356,10 +344,11 @@ export default function ImagesDraw() {
               onPress: async () => {
                 try {
                   // Guardar progreso localmente
-                  await awardColoringTaskCompletion(taskParam, 8);
+                  const level1TaskId = taskParam.replace('-level2', '') as 'cat' | 'patrol' | 'semaforo';
+                  await awardColoringTaskCompletion(level1TaskId, 8); // ✅ Progreso nivel 2
                   setCompletedTasks(prev => ({ ...prev, [taskParam]: true }));
                   await maybeAwardColoringSetStar();
-                  Alert.alert('¡Guardado Localmente!', 'Tu progreso se ha guardado en el dispositivo.\n\nCuando el servidor esté disponible, podrás sincronizar tus dibujos.', [
+                  Alert.alert('¡Guardado Localmente!', 'Tu progreso del Nivel 2 se ha guardado en el dispositivo.\n\nCuando el servidor esté disponible, podrás sincronizar tus dibujos.', [
                     { text: 'OK' },
                   ]);
                 } catch (localError) {
@@ -388,23 +377,31 @@ export default function ImagesDraw() {
       setSaving(false);
     }
   };
+
   const getTaskInfo = (taskId: TaskId) => {
     const taskMap: Record<TaskId, { title: string; emoji: string }> = {
-      cat: { title: 'Gato Policía', emoji: '🐱' },
-      patrol: { title: 'Patrulla', emoji: '🚓' },
-      semaforo: { title: 'Semáforo', emoji: '🚦' },
+      'cat-level2': { title: 'Gato Policía Nivel 2', emoji: '🐱' },
+      'patrol-level2': { title: 'Patrulla Nivel 2', emoji: '🚓' },
+      'semaforo-level2': { title: 'Semáforo Nivel 2', emoji: '🚦' },
     };
-    return taskMap[taskId] || taskMap.cat;
+    return taskMap[taskId] || taskMap['cat-level2'];
   };
+
   const taskInfo = getTaskInfo(taskParam);
+
   return (
-    <ImageBackground source={require('../../assets/images/fondo-draw.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/images' as Href)} style={styles.backBtn} activeOpacity={0.85}>
+        <TouchableOpacity onPress={() => router.replace('/images/index-level2' as Href)} style={styles.backBtn} activeOpacity={0.85}>
           <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
         </TouchableOpacity>
         <Text style={styles.title}>{taskInfo.emoji} {taskInfo.title}</Text>
+        <Text style={styles.subtitle}>¡Colorea y diviértete en el Nivel 2!</Text>
+        {/* Sistema de estrellas */}
+        <View style={styles.starsContainer}>
+          <StarsRow completed={completedTasks} />
+        </View>
       </View>
       {/* Canvas Area */}
       <View style={styles.canvasContainer}>
@@ -433,56 +430,26 @@ export default function ImagesDraw() {
                 setImageLoaded(false);
               }}
             />
-            {/* Drawing Paths - Trazos continuos con SVG */}
-            <Svg style={styles.svgOverlay}>
-              {pathsRef.current.map((path, index) => {
-                const pts = path.points;
-                if (!pts || pts.length === 0) return null;
-                if (pts.length === 1) {
-                  const p = pts[0];
-                  return (
-                    <Path key={`${index}-${renderKey}`}
-                      d={`M ${p.x} ${p.y} L ${p.x + 0.01} ${p.y + 0.01}`}
-                      stroke={path.color}
-                      strokeWidth={path.size}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  );
-                }
-                // Curvas Bézier cuadráticas suaves (Q / T)
-                // Genera puntos intermedios usando midpoints para suavizar
-                const commands: string[] = [];
-                commands.push(`M ${pts[0].x} ${pts[0].y}`);
-                for (let i = 1; i < pts.length - 1; i++) {
-                  const p0 = pts[i - 1];
-                  const p1 = pts[i];
-                  const p2 = pts[i + 1];
-                  const cx = (p0.x + p1.x) / 2;
-                  const cy = (p0.y + p1.y) / 2;
-                  const nx = (p1.x + p2.x) / 2;
-                  const ny = (p1.y + p2.y) / 2;
-                  commands.push(`Q ${p1.x} ${p1.y} ${nx} ${ny}`);
-                }
-                // Línea final al último punto si solo hay 2
-                if (pts.length === 2) {
-                  commands.splice(1, commands.length, `L ${pts[1].x} ${pts[1].y}`);
-                }
-                const d = commands.join(' ');
-                return (
-                  <Path
-                    key={`${index}-${renderKey}`}
-                    d={d}
-                    stroke={path.color}
-                    strokeWidth={path.size}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
+            {/* Drawing Paths - ENCIMA de la imagen base */}
+            {pathsRef.current.map((path, index) => (
+              <View key={`${index}-${renderKey}`} style={styles.pathContainer}>
+                {path.points.map((point, pointIndex) => (
+                  <View
+                    key={`${pointIndex}-${renderKey}`}
+                    style={[
+                      styles.pathPoint,
+                      {
+                        backgroundColor: path.color,
+                        width: path.size,
+                        height: path.size,
+                        left: point.x - path.size / 2,
+                        top: point.y - path.size / 2,
+                      }
+                    ]}
                   />
-                );
-              })}
-            </Svg>
+                ))}
+              </View>
+            ))}
             {/* Overlay Image - ENCIMA de los trazos para mantener bordes visibles */}
             {imageLoaded && !saving && (
               <View style={styles.overlayContainer} pointerEvents="none">
@@ -539,7 +506,7 @@ export default function ImagesDraw() {
             style={styles.titleInput}
             value={title}
             onChangeText={setTitle}
-            placeholder="Mi dibujo genial"
+            placeholder="Mi dibujo genial nivel 2"
             placeholderTextColor={colors.gray}
           />
         </View>
@@ -557,12 +524,26 @@ export default function ImagesDraw() {
       <TouchableOpacity style={[styles.saveBtn, { opacity: saving ? 0.5 : 1 }]} onPress={onSave} disabled={saving} activeOpacity={0.85}>
         <Image source={require('../../assets/images/btn-guardar.png')} style={styles.saveImg} resizeMode="contain" />
       </TouchableOpacity>
-    </ImageBackground>
+    </View>
   );
 }
+
+// ✅ Componente de estrellas para mostrar progreso
+function StarsRow({ completed }: { completed: Record<'cat-level2' | 'patrol-level2' | 'semaforo-level2', boolean> }) {
+  const count = (completed['cat-level2'] ? 1 : 0) + (completed['patrol-level2'] ? 1 : 0) + (completed['semaforo-level2'] ? 1 : 0);
+  return (
+    <View style={{ flexDirection: 'row', alignSelf: 'center', gap: 6, marginVertical: 6 }}>
+      {[1, 2, 3].map((i) => (
+        <Text key={i} style={{ fontSize: 20 }}>{i <= count ? '⭐' : '☆'}</Text>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.primary,
     paddingTop: 50,
   },
   header: {
@@ -580,12 +561,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
-  backBtn: { position: 'absolute', top: -30, left: 16, zIndex: 10 },
+  backBtn: { position: 'absolute', top: 0, left: 16, zIndex: 10 },
   backImg: { width: 96, height: 84 },
   backButtonText: {
     color: colors.white,
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  starsContainer: {
+    marginTop: 8,
   },
   title: {
     fontSize: width < 400 ? 24 : 28,
@@ -593,7 +577,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     marginBottom: 0,
-    marginTop: 30
   },
   subtitle: {
     fontSize: width < 400 ? 14 : 16,
@@ -640,7 +623,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 15,
   },
-  sectionTitle: {   
+  sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.white,
@@ -728,13 +711,4 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0.8, // Semi-transparente para no ocultar completamente los colores
   },
-  svgOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 15,
-  },
 });
-

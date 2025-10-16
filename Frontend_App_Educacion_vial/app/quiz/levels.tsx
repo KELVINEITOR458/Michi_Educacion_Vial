@@ -33,6 +33,15 @@ export default function QuizLevels() {
 
       const quizProgress = await QuizProgressService.getProgress();
 
+      // 🔒 FORZAR RESET del nivel fácil si aparece como completado sin razón
+      if (quizProgress.easy.completed && quizProgress.easy.score === 0) {
+        console.log('🔧 Reseteando nivel fácil corrupto');
+        quizProgress.easy.completed = false;
+        quizProgress.easy.score = 0;
+        quizProgress.easy.completedAt = undefined;
+        await QuizProgressService.saveProgress(quizProgress);
+      }
+
       // Los datos ya vienen validados y corregidos automáticamente por el servicio
       setProgress(quizProgress);
 

@@ -12,7 +12,7 @@ export default function QuizLearningLevel2() {
     <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
       {/* Back Button - Top Left */}
       <TouchableOpacity
-        onPress={() => router.replace('/minigames/level2' as Href)}
+        onPress={() => router.replace('/quiz/main-level2' as Href)}
         style={styles.backBtn}
         activeOpacity={0.85}
       >

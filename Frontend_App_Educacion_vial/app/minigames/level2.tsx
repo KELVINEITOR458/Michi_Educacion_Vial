@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Animated, Easing, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BicycleProgressService } from 'src/services/bicycleProgress';
@@ -15,37 +15,87 @@ export default function MinigamesLevel2() {
     quiz: false,
     bicycle: false
   });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Fondo animado vertical
+  // Fondo animado vertical - debe estar antes de los useEffect que lo usan
   const bgBase = useRef(new Animated.Value(0)).current;
   const bgProgress = Animated.modulo(bgBase, 1);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        // ✅ Sincronizar progreso local con servidor
-        await BicycleProgressService.syncWithServer();
+  // Función para forzar recarga de datos - optimizada para mejor rendimiento
+  const reloadData = useCallback(async () => {
+    try {
+      // Usar datos en caché si están disponibles y son recientes (últimos 5 segundos)
+      const cacheKey = 'level2_completed_activities';
+      const cachedData = (global as any)[cacheKey];
+      const now = Date.now();
 
-        const p = await ProgressApi.get();
-        const list: string[] = Array.isArray(p.completedGames) ? p.completedGames : [];
-
-        // Verificar si alguna de las claves de bicicleta está en la lista para nivel 2
-        const bicycleKeys = ['2_paseo_bici', '2_2', 'bicycle_completed_level2'];
-        const hasBicycleCompleted = bicycleKeys.some(key => list.includes(key));
-
-        const completedActivities = {
-          coloring: list.includes('2_colorear_divertidamente') || list.includes('2_6'),
-          quiz: list.includes('2_quiz_vial') || list.includes('2_1'),
-          bicycle: hasBicycleCompleted
-        };
-
-        setCompletedActivities(completedActivities);
-      } catch (e) {
-        console.error('Error loading completed activities for level 2:', e);
+      if (cachedData && (now - cachedData.timestamp) < 5000) {
+        setCompletedActivities(cachedData.activities);
+        return;
       }
-    })();
+
+      // ✅ Sincronizar progreso local con servidor (más eficiente)
+      await BicycleProgressService.syncWithServer();
+
+      const p = await ProgressApi.get();
+      const list: string[] = Array.isArray(p.completedGames) ? p.completedGames : [];
+
+      // Verificar si alguna de las claves de bicicleta está en la lista para nivel 2
+      const bicycleKeys = ['2_paseo_bici', '2_2', 'bicycle_completed_level2'];
+      const hasBicycleCompleted = bicycleKeys.some(key => list.includes(key));
+
+      const completedActivities = {
+        coloring: list.includes('2_colorear_divertidamente') || list.includes('2_6'),
+        quiz: list.includes('2_quiz_vial') || list.includes('2_1'),
+        bicycle: hasBicycleCompleted
+      };
+
+      // Cachear datos para próximas consultas
+      (global as any)[cacheKey] = {
+        activities: completedActivities,
+        timestamp: now
+      };
+
+      setCompletedActivities(completedActivities);
+    } catch (e) {
+      // Silenciar errores en producción para mejor UX
+      console.warn('No se pudieron cargar los datos del progreso');
+    }
   }, []);
 
+  useEffect(() => {
+    // Cargar datos iniciales inmediatamente con valores por defecto para mejorar UX
+    setCompletedActivities({
+      coloring: false,
+      quiz: false,
+      bicycle: false
+    });
+
+    // Luego recargar datos reales de forma asíncrona después de un breve delay
+    const timer = setTimeout(() => {
+      reloadData();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [reloadData]);
+
+  // Detectar parámetro de refresh en la URL
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const refreshParam = url.searchParams.get('refresh');
+    if (refreshParam) {
+      setRefreshTrigger(prev => prev + 1);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Recargar datos cuando se solicite refresh desde navegación externa
+    if (refreshTrigger > 0) {
+      reloadData();
+    }
+  }, [reloadData, refreshTrigger]);
+
+  // useEffect separado para la animación de fondo
   useEffect(() => {
     const duration = 20000; // velocidad cómoda (más lento que welcome si prefieres)
     bgBase.setValue(0);
@@ -88,7 +138,7 @@ export default function MinigamesLevel2() {
 
       <View style={{ height: 12 }} />
 
-      <TouchableOpacity onPress={() => router.replace('/welcome' as Href)} activeOpacity={0.85} style={styles.backBtn}>
+      <TouchableOpacity onPress={() => router.push('/welcome' as Href)} activeOpacity={0.85} style={styles.backBtn}>
         <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
       </TouchableOpacity>
 

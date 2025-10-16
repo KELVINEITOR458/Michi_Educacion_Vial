@@ -48,12 +48,14 @@ export default function ImagesMenuLevel2() {
 
       images.forEach((image) => {
         const baseImage = image.data?.baseImage as TaskId | undefined;
-        if (baseImage && Object.prototype.hasOwnProperty.call(imagesByCategory, baseImage)) {
+        const level = image.data?.level;
+        // Solo contar imágenes del nivel 2
+        if (baseImage && level === '2' && Object.prototype.hasOwnProperty.call(imagesByCategory, baseImage)) {
           imagesByCategory[baseImage]++;
         }
       });
 
-      // Verificar si cada categoría tiene al menos 1 imagen
+      // Verificar si cada categoría tiene al menos 1 imagen del nivel 2
       Object.keys(imagesByCategory).forEach((category) => {
         const cat = category as TaskId;
         if (imagesByCategory[cat] > 0) {
@@ -132,7 +134,7 @@ export default function ImagesMenuLevel2() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={styles.galleryBtn} onPress={() => router.push('/images/gallery' as Href)}>
+        <TouchableOpacity style={styles.galleryBtn} onPress={() => router.push('/images/gallery?from=level2' as Href)}>
           <LinearGradient colors={colors.gradientSecondary} style={styles.galleryGradient}>
             <Text style={styles.galleryText}>🖼️ Ver Galería</Text>
           </LinearGradient>

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ProgressApi } from './progress';
-import { AuthService } from './auth';
+import { ProgressApi } from '../services/progress';
+import { AuthService } from '../services/auth';
 
 const QUIZ_PROGRESS_KEY = 'quiz_progress';
 
@@ -106,6 +106,14 @@ export class QuizProgressService {
       corrected.level1CompletedAt = undefined;
     }
 
+    // Caso 6: Nivel fácil marcado como completado pero con score 0 (datos corruptos)
+    if (corrected.easy.completed && corrected.easy.score === 0) {
+      console.log('🔧 Datos corruptos detectados en nivel fácil, reseteando');
+      corrected.easy.completed = false;
+      corrected.easy.score = 0;
+      corrected.easy.completedAt = undefined;
+    }
+
     return corrected;
   }
 
@@ -113,7 +121,7 @@ export class QuizProgressService {
     try {
       await AsyncStorage.setItem(QUIZ_PROGRESS_KEY, JSON.stringify(progress));
     } catch (error) {
-      
+      console.error('❌ Error saving progress:', error);
     }
   }
 
@@ -197,16 +205,6 @@ export class QuizProgressService {
       console.error('❌ Error in admin reset check:', error);
       return false;
     }
-  }
-
-  static async getNextAvailableLevel(): Promise<'easy' | 'medium' | 'hard'> {
-    const progress = await this.getProgress();
-
-    if (!progress.easy.completed) return 'easy';
-    if (!progress.medium.unlocked) return 'easy'; // Si medium no está desbloqueado, jugar easy
-    if (!progress.hard.unlocked) return 'medium'; // Si hard no está desbloqueado, jugar medium
-
-    return 'easy'; // Si todos están completados, empezar de nuevo
   }
 
   static async isLevelUnlocked(levelId: 'easy' | 'medium' | 'hard'): Promise<boolean> {

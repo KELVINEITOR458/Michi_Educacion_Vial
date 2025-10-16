@@ -65,6 +65,18 @@ export async function awardQuizLevel1Completion(pointsEarned = 10) {
   });
 }
 
+export async function awardBicycleLevel1Completion(pointsEarned = 10) {
+  const l = 1;
+  return apply({
+    addPoints: pointsEarned,
+    addCoinsIfNoPoints: Math.floor(pointsEarned / 2),
+    addCompleted: [`${l}_paseo_bici`, `${l}_2`],
+  });
+}
+
+
+
+
 export async function awardBicycleLevel2Completion(pointsEarned = 10) {
   const l = 2;
 

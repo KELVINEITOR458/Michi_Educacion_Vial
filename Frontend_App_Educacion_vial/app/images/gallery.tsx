@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Dimensions, Image, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/utils/colors';
 import { ImagesApi, type ColoredImage } from '@/services/images';
 import { SvgUri } from 'react-native-svg';
@@ -17,6 +17,8 @@ const { width, height } = Dimensions.get('window');
 
 export default function ImagesGallery() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ from?: string }>();
+  const fromParam = params.from || 'level1'; // Por defecto nivel 1
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ColoredImage[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,6 +79,17 @@ export default function ImagesGallery() {
     setPreviewModal({ visible: false, item: null });
   };
 
+  // Función para determinar a dónde regresar según el origen
+  const getBackDestination = () => {
+    switch (fromParam) {
+      case 'level2':
+        return '/images/index-level2';
+      case 'level1':
+      default:
+        return '/images';
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -89,7 +102,7 @@ export default function ImagesGallery() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace(getBackDestination() as any)}>
           <Image source={require('../../assets/images/btn-volver.png')} style={styles.backButtonImage} resizeMode="contain" />
         </TouchableOpacity>
         <Image source={require('../../assets/images/logo-pintor.png')} style={styles.logoImage} resizeMode="contain" />
