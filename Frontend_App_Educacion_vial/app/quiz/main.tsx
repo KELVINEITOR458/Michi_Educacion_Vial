@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/utils/colors';
 import { useRouter, type Href } from 'expo-router';
@@ -10,7 +10,7 @@ const { width } = Dimensions.get('window');
 export default function QuizMain() {
   const router = useRouter();
   return (
-    <LinearGradient colors={['#FFE4B5', '#FFD700', colors.gradientVialYellow[0]]} style={styles.container}>
+    <ImageBackground source={require('../../assets/images/fondo-quiz.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
       {/* Back Button - Top Left */}
       <TouchableOpacity 
         onPress={() => router.replace('/minigames/level1' as Href)} 
@@ -21,12 +21,11 @@ export default function QuizMain() {
       </TouchableOpacity>
 
       <View style={styles.header}> 
-        <Image 
-          source={require('../../assets/images/quizVial.png')} 
-          style={styles.image} 
-          resizeMode="contain" 
-        />
-        <Text style={styles.title}>🧠 Quiz Vial - Nivel 1</Text>
+        
+        {/* Title Card */}
+        <View style={styles.titleCard}>
+          <Text style={styles.title}>🧠 Quiz Vial - Nivel 1</Text>
+        </View>
         
         {/* Content Card */}
         <View style={styles.contentCard}>
@@ -45,33 +44,46 @@ export default function QuizMain() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.btn} onPress={() => router.push('/quiz/learning' as Href)}>
-        <LinearGradient colors={colors.gradientSecondary} style={styles.btnGradient}>
-          <Text style={styles.btnText}>📘 Aprender</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.btn} onPress={() => router.push('/quiz/levels' as Href)}>
-        <LinearGradient colors={colors.gradientSuccess} style={styles.btnGradient}>
-          <Text style={styles.btnText}>▶️ Empezar Quiz</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
+      {/* Botón Empezar Quiz */}
       <TouchableOpacity 
-        style={[styles.btn, { marginBottom: 24 }]} 
-        onPress={() => router.push('/quiz/competition' as Href)}
+        style={styles.imageBtn} 
+        onPress={() => router.push('/quiz/levels' as Href)}
+        activeOpacity={0.7}
       >
-        <LinearGradient 
-          colors={['#FF6B6B', '#FF8E53']} 
-          style={styles.btnGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <Text style={styles.btnText}>🏆 Competencia en Vivo</Text>
-        </LinearGradient>
+        <Image 
+          source={require('../../assets/images/quiz/boton-play.png')} 
+          style={styles.btnImage} 
+          resizeMode="contain" 
+        />
       </TouchableOpacity>
 
-    </LinearGradient>
+      {/* Botón Aprender */}
+      <TouchableOpacity 
+        style={styles.imageBtn} 
+        onPress={() => router.push('/quiz/learning' as Href)}
+        activeOpacity={0.7}
+      >
+        <Image 
+          source={require('../../assets/images/quiz/boton-aprender.png')} 
+          style={styles.btnImage} 
+          resizeMode="contain" 
+        />
+      </TouchableOpacity>
+
+      {/* Botón Competencia en Vivo */}
+      <TouchableOpacity 
+        style={[styles.imageBtn, { marginBottom: 16 }]} 
+        onPress={() => router.push('/quiz/competition' as Href)}
+        activeOpacity={0.7}
+      >
+        <Image 
+          source={require('../../assets/images/quiz/boton-compe.png')} 
+          style={styles.btnImage} 
+          resizeMode="contain" 
+        />
+      </TouchableOpacity>
+
+    </ImageBackground>
   );
 }
 
@@ -93,7 +105,7 @@ const styles = StyleSheet.create({
   // Header content
   header: { 
     alignItems: 'center', 
-    marginBottom: 24,
+    marginBottom: 8,
     marginTop: 34,
     width: '100%',
   },
@@ -105,16 +117,36 @@ const styles = StyleSheet.create({
   title: { 
     fontSize: width < 400 ? 22 : 24, 
     fontWeight: 'bold', 
-    color: colors.white, 
+    color: '#FFFFFF', 
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+  },
+  // Title Card
+  titleCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     marginBottom: 8,
+    shadowColor: 'rgba(0, 0, 0, 0.5)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   subtitle: { 
     textAlign: 'center', 
-    color: colors.white, 
-    opacity: 0.9,
+    color: '#FFFFFF', 
     fontSize: width < 400 ? 14 : 15,
     paddingHorizontal: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    fontWeight: '600',
   },
   // Content Card Styles
   contentCard: {
@@ -122,7 +154,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
     maxWidth: 500, // Ancho máximo para pantallas grandes
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 8,
     shadowColor: colors.shadowDark as any,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -188,5 +221,20 @@ const styles = StyleSheet.create({
     color: colors.white, 
     fontWeight: '700',
     fontSize: 16,
+  },
+  // Image Buttons
+  imageBtn: {
+    marginTop: 8,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: colors.shadowDark as any,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  btnImage: {
+    width: '100%',
+    height: width < 400 ? width * 0.35 : width * 0.32,
   },
 });

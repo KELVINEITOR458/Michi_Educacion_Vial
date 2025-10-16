@@ -109,13 +109,11 @@ export default function MinigamesLevel1() {
           <View style={styles.cardBottomLargeGreen}>
             <View style={styles.cardTitleContainer}>
               <Text style={styles.cardTitleLarge}>Colorear divertidamente</Text>
-              {completedActivities.coloring && (
-                <View style={styles.starContainerInline}>
-                  <Text style={styles.starText}>⭐</Text>
-                </View>
-              )}
             </View>
             <Text style={styles.cardDescLarge}>Colorea y aprende</Text>
+          </View>
+          <View style={[styles.completionBadge, !completedActivities.coloring && { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}>
+            <Text style={[styles.completionStar, !completedActivities.coloring && { color: '#555' }]}>{completedActivities.coloring ? '⭐' : '☆'}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -132,13 +130,11 @@ export default function MinigamesLevel1() {
           <View style={styles.cardBottomLargeYellow}>
             <View style={styles.cardTitleContainer}>
               <Text style={styles.cardTitleLarge}>Quiz Vial</Text>
-              {completedActivities.quiz && (
-                <View style={styles.starContainerInline}>
-                  <Text style={styles.starText}>⭐</Text>
-                </View>
-              )}
             </View>
             <Text style={styles.cardDescLarge}>Pon a prueba tus conocimientos</Text>
+          </View>
+          <View style={[styles.completionBadge, !completedActivities.quiz && { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}>
+            <Text style={[styles.completionStar, !completedActivities.quiz && { color: '#555' }]}>{completedActivities.quiz ? '⭐' : '☆'}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -155,13 +151,11 @@ export default function MinigamesLevel1() {
           <View style={styles.cardBottomLargeOrange}>
             <View style={styles.cardTitleContainer}>
               <Text style={styles.cardTitleLarge}>Aventura en Bicicleta</Text>
-              {completedActivities.bicycle && (
-                <View style={styles.starContainerInline}>
-                  <Text style={styles.starText}>⭐</Text>
-                </View>
-              )}
             </View>
             <Text style={styles.cardDescLarge}>Evita obstáculos y responde preguntas</Text>
+          </View>
+          <View style={[styles.completionBadge, !completedActivities.bicycle && { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}>
+            <Text style={[styles.completionStar, !completedActivities.bicycle && { color: '#555' }]}>{completedActivities.bicycle ? '⭐' : '☆'}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -206,7 +200,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.29,
     shadowRadius: 5.5,
-    elevation: 9
+    elevation: 9,
+    position: 'relative'
   },
   // Column split (normal)
   cardInnerColumn: { flexDirection: 'column', alignItems: 'stretch', minHeight: 135 },
@@ -233,7 +228,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     flex: 1
   },
-  cardDescLarge: { color: colors.white, opacity: 0.95, marginTop: 5, textAlign: 'center', fontSize: 15 },
+  cardDescLarge: { color: colors.white, opacity: 0.95, marginTop: 5, textAlign: 'left', fontSize: 15 },
   // Color helpers for bottoms
   cardBottomLargeGreen: { backgroundColor: colors.gradientVialGreen[0], paddingVertical: 13, paddingHorizontal: 13 },
   cardBottomLargeYellow: { backgroundColor: colors.gradientVialYellow[0], paddingVertical: 13, paddingHorizontal: 13 },
@@ -243,6 +238,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 10
   },
+  completionBadge: { position: 'absolute', bottom: 20, right: 8, width: 40, height: 40, borderRadius: 8, backgroundColor: 'rgba(255, 255, 255, 0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 3.5, elevation: 5, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)' },
+  completionStar: { fontSize: 18, color: '#000', fontWeight: '900' },
 });
 
 function StarsRow({ completed }: { completed: Record<string, boolean> }) {

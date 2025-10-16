@@ -40,19 +40,37 @@ function LoadingScreen() {
 
 export default function RootLayout() {
   const [ready, setReady] = React.useState(false);
+  const overlayOpacity = useRef(new Animated.Value(1)).current;
+  const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 3500); // simula carga
     return () => clearTimeout(t);
   }, []);
 
-  if (!ready) return <LoadingScreen />;
+  useEffect(() => {
+    if (ready) {
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 350, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setShowOverlay(false);
+      });
+    }
+  }, [ready]);
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <View style={styles.root}>
+      <Stack screenOptions={{ headerShown: false }} />
+      {showOverlay && (
+        <Animated.View style={[StyleSheet.absoluteFillObject as any, { opacity: overlayOpacity, zIndex: 999 }]}> 
+          <LoadingScreen />
+        </Animated.View>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  loadingRoot: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#000' },
+  loadingRoot: { flex: 1, backgroundColor: '#000' },
   bgImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   logo: { width: width * 0.8, height: 260, marginBottom: 20 },

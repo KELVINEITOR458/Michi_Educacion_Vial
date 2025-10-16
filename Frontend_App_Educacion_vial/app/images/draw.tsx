@@ -1,8 +1,9 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Dimensions, PanResponder, ScrollView, Image, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import ViewShot, { captureRef } from 'react-native-view-shot';
+import Svg, { Path } from 'react-native-svg';
 import { colors } from '../../src/utils/colors';
 import { ImagesApi } from '../../src/services/images';
 import { AuthService } from '../../src/services/auth';
@@ -16,6 +17,7 @@ const TASK_IMAGES: Record<TaskId, any> = {
   semaforo: require('../../assets/images/semaforo-bordes.png'), // ✅ Semáforo con bordes
 };
 const COLORS = [
+  '#9E9E9E', // Gris
   '#FF6B6B', // Rojo
   '#4ECDC4', // Turquesa
   '#45B7D1', // Azul
@@ -117,8 +119,28 @@ export default function ImagesDraw() {
       if (locationX >= 0 && locationY >= 0 && locationX <= width && locationY <= height) {
         const currentPath = pathsRef.current[pathsRef.current.length - 1];
         if (currentPath) {
-          currentPath.points.push({ x: locationX, y: locationY });
-          setRenderKey(prev => prev + 1); // ✅ Forzar re-renderizado en tiempo real
+          // Umbral dinámico según grosor para reducir puntos y mejorar rendimiento
+          const last = currentPath.points[currentPath.points.length - 1];
+          const dx = locationX - last.x;
+          const dy = locationY - last.y;
+          const minDist = Math.max(2, brushSize * 0.6);
+          if ((dx * dx + dy * dy) > (minDist * minDist)) {
+            currentPath.points.push({ x: locationX, y: locationY });
+            // Limitar tamaño por trazo para no degradar el rendimiento
+            const MAX_POINTS_PER_PATH = 1500;
+            if (currentPath.points.length > MAX_POINTS_PER_PATH) {
+              // Downsample conservando 1 de cada 2 puntos
+              currentPath.points = currentPath.points.filter((_, i) => i % 2 === 0);
+            }
+          }
+          // Agrupar repintados a un frame usando requestAnimationFrame
+          if (!(onSave as any)._rafScheduled) {
+            (onSave as any)._rafScheduled = true;
+            requestAnimationFrame(() => {
+              (onSave as any)._rafScheduled = false;
+              setRenderKey(prev => prev + 1);
+            });
+          }
         }
       }
     },
@@ -271,8 +293,10 @@ export default function ImagesDraw() {
       try {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
-        // En React Native, localhost NO funciona, usar IP local de tu computadora
-        const baseUrl = 'http://192.168.100.159:3002'; // Tu IP local real
+        // En React Native, usar API_BASE_URL configurado en app.json; fallback al DEFAULT_BASE_URL de ApiClient
+        const configured = (require('expo-constants').default.expoConfig?.extra?.API_BASE_URL as string) || undefined;
+        const { ApiClient } = require('../../src/services/api');
+        const baseUrl = configured || new ApiClient().request ? (new ApiClient() as any).baseUrl || 'http://192.168.100.159:3002' : 'http://192.168.100.159:3002';
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {
@@ -374,18 +398,13 @@ export default function ImagesDraw() {
   };
   const taskInfo = getTaskInfo(taskParam);
   return (
-    <View style={styles.container}>
+    <ImageBackground source={require('../../assets/images/fondo-draw.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/images' as Href)} style={styles.backBtn} activeOpacity={0.85}>
           <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
         </TouchableOpacity>
         <Text style={styles.title}>{taskInfo.emoji} {taskInfo.title}</Text>
-        <Text style={styles.subtitle}>¡Colorea y diviértete!</Text>
-        {/* Sistema de estrellas */}
-        <View style={styles.starsContainer}>
-          <StarsRow completed={completedTasks} />
-        </View>
       </View>
       {/* Canvas Area */}
       <View style={styles.canvasContainer}>
@@ -414,26 +433,56 @@ export default function ImagesDraw() {
                 setImageLoaded(false);
               }}
             />
-            {/* Drawing Paths - ENCIMA de la imagen base */}
-            {pathsRef.current.map((path, index) => (
-              <View key={`${index}-${renderKey}`} style={styles.pathContainer}>
-                {path.points.map((point, pointIndex) => (
-                  <View
-                    key={`${pointIndex}-${renderKey}`}
-                    style={[
-                      styles.pathPoint,
-                      {
-                        backgroundColor: path.color,
-                        width: path.size,
-                        height: path.size,
-                        left: point.x - path.size / 2,
-                        top: point.y - path.size / 2,
-                      }
-                    ]}
+            {/* Drawing Paths - Trazos continuos con SVG */}
+            <Svg style={styles.svgOverlay}>
+              {pathsRef.current.map((path, index) => {
+                const pts = path.points;
+                if (!pts || pts.length === 0) return null;
+                if (pts.length === 1) {
+                  const p = pts[0];
+                  return (
+                    <Path key={`${index}-${renderKey}`}
+                      d={`M ${p.x} ${p.y} L ${p.x + 0.01} ${p.y + 0.01}`}
+                      stroke={path.color}
+                      strokeWidth={path.size}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  );
+                }
+                // Curvas Bézier cuadráticas suaves (Q / T)
+                // Genera puntos intermedios usando midpoints para suavizar
+                const commands: string[] = [];
+                commands.push(`M ${pts[0].x} ${pts[0].y}`);
+                for (let i = 1; i < pts.length - 1; i++) {
+                  const p0 = pts[i - 1];
+                  const p1 = pts[i];
+                  const p2 = pts[i + 1];
+                  const cx = (p0.x + p1.x) / 2;
+                  const cy = (p0.y + p1.y) / 2;
+                  const nx = (p1.x + p2.x) / 2;
+                  const ny = (p1.y + p2.y) / 2;
+                  commands.push(`Q ${p1.x} ${p1.y} ${nx} ${ny}`);
+                }
+                // Línea final al último punto si solo hay 2
+                if (pts.length === 2) {
+                  commands.splice(1, commands.length, `L ${pts[1].x} ${pts[1].y}`);
+                }
+                const d = commands.join(' ');
+                return (
+                  <Path
+                    key={`${index}-${renderKey}`}
+                    d={d}
+                    stroke={path.color}
+                    strokeWidth={path.size}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
                   />
-                ))}
-              </View>
-            ))}
+                );
+              })}
+            </Svg>
             {/* Overlay Image - ENCIMA de los trazos para mantener bordes visibles */}
             {imageLoaded && !saving && (
               <View style={styles.overlayContainer} pointerEvents="none">
@@ -508,24 +557,12 @@ export default function ImagesDraw() {
       <TouchableOpacity style={[styles.saveBtn, { opacity: saving ? 0.5 : 1 }]} onPress={onSave} disabled={saving} activeOpacity={0.85}>
         <Image source={require('../../assets/images/btn-guardar.png')} style={styles.saveImg} resizeMode="contain" />
       </TouchableOpacity>
-    </View>
-  );
-}
-// ✅ Componente de estrellas para mostrar progreso
-function StarsRow({ completed }: { completed: Record<'cat' | 'patrol' | 'semaforo', boolean> }) {
-  const count = (completed.cat ? 1 : 0) + (completed.patrol ? 1 : 0) + (completed.semaforo ? 1 : 0);
-  return (
-    <View style={{ flexDirection: 'row', alignSelf: 'center', gap: 6, marginVertical: 6 }}>
-      {[1, 2, 3].map((i) => (
-        <Text key={i} style={{ fontSize: 20 }}>{i <= count ? '⭐' : '☆'}</Text>
-      ))}
-    </View>
+    </ImageBackground>
   );
 }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary,
     paddingTop: 50,
   },
   header: {
@@ -543,15 +580,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
-  backBtn: { position: 'absolute', top: 0, left: 16, zIndex: 10 },
+  backBtn: { position: 'absolute', top: -30, left: 16, zIndex: 10 },
   backImg: { width: 96, height: 84 },
   backButtonText: {
     color: colors.white,
     fontWeight: 'bold',
     fontSize: 14,
-  },
-  starsContainer: {
-    marginTop: 8,
   },
   title: {
     fontSize: width < 400 ? 24 : 28,
@@ -559,6 +593,7 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     marginBottom: 0,
+    marginTop: 30
   },
   subtitle: {
     fontSize: width < 400 ? 14 : 16,
@@ -605,7 +640,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 15,
   },
-  sectionTitle: {
+  sectionTitle: {   
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.white,
@@ -693,4 +728,13 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0.8, // Semi-transparente para no ocultar completamente los colores
   },
+  svgOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15,
+  },
 });
+

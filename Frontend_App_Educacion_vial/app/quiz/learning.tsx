@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/utils/colors';
 import { useRouter, type Href } from 'expo-router';
@@ -9,7 +9,7 @@ const { width } = Dimensions.get('window');
 export default function QuizLearning() {
   const router = useRouter();
   return (
-    <LinearGradient colors={colors.gradientPrimary} style={styles.container}>
+    <ImageBackground source={require('../../assets/images/bg-aprender.png')} style={styles.container} resizeMode="cover" blurRadius={3}>
       {/* Back Button - Top Left */}
       <TouchableOpacity 
         onPress={() => router.replace('/minigames/level1' as Href)} 
@@ -20,11 +20,6 @@ export default function QuizLearning() {
       </TouchableOpacity>
 
       <View style={styles.header}> 
-        <Image 
-          source={require('../../assets/images/quizVial.png')} 
-          style={styles.image} 
-          resizeMode="contain" 
-        />
         <Text style={styles.title}>Aprende antes del Quiz</Text>
         <Text style={styles.subtitle}>Repasa estas ideas clave de educación vial.</Text>
       </View>
@@ -48,7 +43,7 @@ export default function QuizLearning() {
           <Text style={styles.btnText}>¡Listo! Empezar Quiz</Text>
         </LinearGradient>
       </TouchableOpacity>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 
@@ -56,7 +51,7 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     padding: 20, 
-    paddingTop: 60, // More padding at the top for the back button
+    paddingTop: 80, // Increased padding to move content down
   },
   // Back button styles
   backBtn: { 
@@ -70,26 +65,28 @@ const styles = StyleSheet.create({
   header: { 
     alignItems: 'center', 
     marginBottom: 24,
-    marginTop: 12,
-  },
-  image: { 
-    width: width < 400 ? 140 : 160, 
-    height: width < 400 ? 100 : 120, 
-    marginBottom: 12 
+    marginTop: 20,
   },
   title: { 
     fontSize: width < 400 ? 22 : 24, 
     fontWeight: 'bold', 
-    color: colors.white, 
+    color: '#FFFFFF', 
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: { 
     textAlign: 'center', 
-    color: colors.white, 
-    opacity: 0.9,
+    color: '#FFFFFF', 
+    opacity: 0.95,
     fontSize: width < 400 ? 14 : 15,
     paddingHorizontal: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    fontWeight: '500',
   },
   // Scroll content
   scrollContent: { 
@@ -97,16 +94,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   contentCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   item: { 
     fontSize: 16, 
-    color: colors.white, 
+    color: '#FFFFFF', 
     marginBottom: 12,
     lineHeight: 24,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   // Buttons
   btn: { 
