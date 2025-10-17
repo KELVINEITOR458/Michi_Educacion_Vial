@@ -43,6 +43,30 @@ export class PuzzleController {
     }
   }
 
+  @Get('available-images')
+  async getAvailableImages() {
+    // Lista de imágenes disponibles para rompecabezas
+    return {
+      images: [
+        {
+          id: 'quizVial',
+          name: 'Educación Vial',
+          url: 'https://i.imgur.com/4AiXzf8.jpeg'
+        },
+        {
+          id: 'personaje1',
+          name: 'Personaje 1',
+          url: 'https://i.imgur.com/example1.jpeg'
+        },
+        {
+          id: 'personaje2',
+          name: 'Personaje 2',
+          url: 'https://i.imgur.com/example2.jpeg'
+        }
+      ]
+    };
+  }
+
   @Get('image')
   async getImage(@Query('filename') filename = 'personaje1.png', @Req() req: Request) {
     const base = `${req.protocol}://${req.get('host')}`;

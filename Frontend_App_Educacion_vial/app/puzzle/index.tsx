@@ -25,11 +25,14 @@ export default function PuzzleHome() {
     try {
       setLoading(true);
       const response = await PuzzleApi.getAvailableImages();
-      setAvailableImages(response.images);
+
+      // Verificación adicional de seguridad
+      const images = response?.images || [];
+      setAvailableImages(images);
 
       // Seleccionar la primera imagen por defecto
-      if (response.images.length > 0) {
-        setSelectedImage(response.images[0]);
+      if (images.length > 0) {
+        setSelectedImage(images[0]);
       }
     } catch (error) {
       console.warn('Error loading images:', error);
@@ -80,6 +83,10 @@ export default function PuzzleHome() {
 
   return (
     <ImageBackground source={require('../../assets/images/fondo-quiz.png')} style={styles.container} resizeMode="cover">
+      <TouchableOpacity onPress={() => router.replace('/' as Href)} style={styles.backBtn}>
+        <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
+      </TouchableOpacity>
+
       <Text style={styles.title}>🧩 Rompecabezas</Text>
 
       <TouchableOpacity
@@ -111,10 +118,13 @@ export default function PuzzleHome() {
         <Text style={styles.btnText}>3 x 3</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.btn} onPress={() => startPuzzle('3x5')}>
-        <Text style={styles.btnText}>3 x 5</Text>
+        <Text style={styles.btnText}>5 x 5</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.btn} onPress={() => startPuzzle('4x4')}>
         <Text style={styles.btnText}>4 x 4</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.btn} onPress={() => startPuzzle('6x6')}>
+        <Text style={styles.btnText}>6 x 6</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.btn, { marginTop: 20 }]} onPress={() => router.push('/puzzle/rankings' as Href)}>
         <Text style={styles.btnText}>🏆 Rankings</Text>
@@ -126,7 +136,7 @@ export default function PuzzleHome() {
             <Text style={styles.modalTitle}>Seleccionar Imagen</Text>
             {loading ? (
               <Text style={styles.loadingText}>Cargando imágenes...</Text>
-            ) : (
+            ) : availableImages && availableImages.length > 0 ? (
               <FlatList
                 data={availableImages}
                 renderItem={renderImageItem}
@@ -134,6 +144,8 @@ export default function PuzzleHome() {
                 numColumns={2}
                 contentContainerStyle={styles.imageGrid}
               />
+            ) : (
+              <Text style={styles.loadingText}>No hay imágenes disponibles</Text>
             )}
             <TouchableOpacity
               style={styles.closeButton}
@@ -150,6 +162,16 @@ export default function PuzzleHome() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  backBtn: {
+    position: 'absolute',
+    top: 20,
+    left: 16,
+    zIndex: 10
+  },
+  backImg: {
+    width: 96,
+    height: 84
+  },
   title: { fontSize: 28, fontWeight: 'bold', color: colors.white },
   subtitle: { fontSize: 16, color: colors.white, opacity: 0.9, marginBottom: 16 },
   btn: { backgroundColor: 'rgba(0,0,0,0.4)', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 14, marginVertical: 6, width: 220, alignItems: 'center' },

@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import fs from 'fs-extra';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export interface PieceInfo {
   id: string;
@@ -16,6 +17,33 @@ export async function splitImage(
   gridSize = 3,
   outputBase = path.join(process.cwd(), 'uploads', 'pieces')
 ): Promise<{ pieces: PieceInfo[]; folder: string }> {
+  // Crear hash estable basado en filename + gridSize
+  const filename = path.basename(inputPath);
+  const hash = crypto.createHash('md5').update(`${filename}-${gridSize}`).digest('hex');
+  const outputDir = path.join(outputBase, hash);
+  
+  // Verificar si ya existen las piezas
+  const firstPiecePath = path.join(outputDir, 'piece-0-0.png');
+  if (await fs.pathExists(firstPiecePath)) {
+    console.log(`Reutilizando piezas existentes para ${filename} (${gridSize}x${gridSize})`);
+    const pieces: PieceInfo[] = [];
+    
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const piecePath = path.join(outputDir, `piece-${row}-${col}.png`);
+        pieces.push({
+          id: `${row}-${col}`,
+          row,
+          col,
+          path: piecePath,
+          url: `/uploads/pieces/${hash}/piece-${row}-${col}.png`,
+        });
+      }
+    }
+    
+    return { pieces, folder: outputDir };
+  }
+
   const image = sharp(inputPath);
   const metadata = await image.metadata();
 
@@ -25,7 +53,6 @@ export async function splitImage(
   const imgW = metadata.width;
   const imgH = metadata.height;
 
-  const outputDir = path.join(outputBase, uuidv4());
   await fs.ensureDir(outputDir);
 
   const pieces: PieceInfo[] = [];
@@ -60,13 +87,13 @@ export async function splitImage(
         );
       }
 
-      pieces.push({
-        id: `${row}-${col}`,
-        row,
-        col,
-        path: piecePath,
-        url: `/uploads/pieces/${path.basename(outputDir)}/piece-${row}-${col}.png`,
-      });
+        pieces.push({
+          id: `${row}-${col}`,
+          row,
+          col,
+          path: piecePath,
+          url: `/uploads/pieces/${hash}/piece-${row}-${col}.png`,
+        });
     }
   }
 

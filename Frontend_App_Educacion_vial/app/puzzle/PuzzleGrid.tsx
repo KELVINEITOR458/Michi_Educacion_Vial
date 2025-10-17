@@ -83,13 +83,21 @@ export default function PuzzleGrid({
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
 
-      // Calcular posiciones en el área flotante (3 columnas para mejor distribución)
-      const piecesPerRow = 3;
+      // Calcular posiciones en el área flotante - más columnas para puzzles grandes
+      const totalPieces = arr.length;
+      let piecesPerRow = 3;
+      
+      // Ajustar columnas según el número de piezas
+      if (totalPieces >= 36) piecesPerRow = 6; // 6x6 = 36 piezas
+      else if (totalPieces >= 25) piecesPerRow = 5; // 5x5 = 25 piezas
+      else if (totalPieces >= 16) piecesPerRow = 4; // 4x4 = 16 piezas
+      else if (totalPieces >= 9) piecesPerRow = 3; // 3x3 = 9 piezas
+
       arr.forEach((piece, index) => {
         const row = Math.floor(index / piecesPerRow);
         const col = index % piecesPerRow;
-        piece.x = col * pieceSize + 20; // Espaciado de 20px
-        piece.y = puzzleSize + 20 + row * pieceSize; // Debajo del puzzle con espaciado
+        piece.x = col * pieceSize + 10; // Espaciado de 20px
+        piece.y = puzzleSize + 80 + row * pieceSize; // Más abajo, después de los botones
         piece.translateX = 0;
         piece.translateY = 0;
       });
@@ -100,13 +108,20 @@ export default function PuzzleGrid({
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
 
-      // Posicionar en área flotante
-      const piecesPerRow = 3;
+      // Posicionar en área flotante - usar la misma lógica de columnas
+      const totalPieces = arr.length;
+      let piecesPerRow = 3;
+      
+      if (totalPieces >= 36) piecesPerRow = 6; // 6x6 = 36 piezas
+      else if (totalPieces >= 25) piecesPerRow = 5; // 5x5 = 25 piezas
+      else if (totalPieces >= 16) piecesPerRow = 4; // 4x4 = 16 piezas
+      else if (totalPieces >= 9) piecesPerRow = 3; // 3x3 = 9 piezas
+      
       arr.forEach((piece, index) => {
         const row = Math.floor(index / piecesPerRow);
         const col = index % piecesPerRow;
-        piece.x = col * pieceSize + 20;
-        piece.y = puzzleSize + 20 + row * pieceSize;
+        piece.x = col * pieceSize + 10;
+        piece.y = puzzleSize + 80 + row * pieceSize; // Más abajo, después de los botones
       });
     }
 
@@ -226,7 +241,7 @@ function PuzzlePiece({
 
       // Permitir movimiento libre dentro de límites amplios
       const maxX = width - pieceSize - 20;
-      const maxY = puzzleSize + 140 + pieceSize;
+      const maxY = puzzleSize + 220 + pieceSize; // Ajustado para la nueva posición
 
       translateX.value = Math.max(0, Math.min(maxX, translateX.value + e.changeX));
       translateY.value = Math.max(0, Math.min(maxY, translateY.value + e.changeY));
@@ -258,7 +273,7 @@ function PuzzlePiece({
         if (!inPuzzleArea) {
           // Devolver al área flotante si está fuera del área del puzzle
           const floatingX = Math.max(0, Math.min(width - pieceSize - 40, currentX));
-          const floatingY = Math.max(puzzleSize + 20, Math.min(puzzleSize + 140, currentY));
+          const floatingY = Math.max(puzzleSize + 80, Math.min(puzzleSize + 220, currentY));
 
           translateX.value = withTiming(floatingX, { duration: 200 });
           translateY.value = withTiming(floatingY, { duration: 200 });

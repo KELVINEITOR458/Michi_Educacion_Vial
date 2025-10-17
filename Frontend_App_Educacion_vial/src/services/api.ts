@@ -72,7 +72,18 @@ export class PuzzleApi {
   static async getAvailableImages(): Promise<{ images: Array<{ id: string; name: string; url: string }> }> {
     try {
       const api = new ApiClient();
-      return await api.request('/api/puzzle/images');
+      const response = await api.request('/api/puzzle/available-images') as any;
+
+      // Asegurar que la respuesta tenga la estructura correcta
+      if (response && response.images && Array.isArray(response.images)) {
+        return response as { images: Array<{ id: string; name: string; url: string }> };
+      } else if (Array.isArray(response)) {
+        // Si el servidor devuelve directamente el array
+        return { images: response };
+      } else {
+        // Si la respuesta no tiene la estructura esperada
+        throw new Error('Respuesta del servidor no tiene formato válido');
+      }
     } catch (error) {
       console.warn('Error getting puzzle images from server:', error);
       // Fallback a imágenes locales

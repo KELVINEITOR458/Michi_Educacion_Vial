@@ -10,12 +10,12 @@ import PuzzleGrid from './PuzzleGrid';
 
 const { width } = Dimensions.get('window');
 
-type Grid = '3x3' | '3x5' | '4x4';
+type Grid = '3x3' | '3x5' | '4x4' | '6x6';
 
 export default function PuzzlePlay() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const gridParam = (params.grid as Grid) || '3x5';
+  const gridParam = (params.grid as string) || '3x5';
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [tiles, setTiles] = useState<Array<{ url: string; row: number; col: number }> | null>(null);
   const [startedAt, setStartedAt] = useState<number>(Date.now());
@@ -27,8 +27,18 @@ export default function PuzzlePlay() {
     if (gridParam === '3x3') return [3, 3]; // 9 piezas
     if (gridParam === '3x5') return [5, 3]; // 15 piezas  
     if (gridParam === '4x4') return [4, 4]; // 16 piezas
+    if (gridParam === '6x6') return [6, 6]; // 36 piezas
     return [3, 3]; // Default 9 piezas
   }, [gridParam]);
+
+  // Función para mostrar el título correcto del puzzle
+  const getDisplayTitle = () => {
+    if (gridParam === '3x3') return '3X3';
+    if (gridParam === '3x5') return '5X5'; // Mostrar 5x5 como el usuario espera
+    if (gridParam === '4x4') return '4X4';
+    if (gridParam === '6x6') return '6X6';
+    return 'PUZZLE'; // Fallback
+  };
 
 // Cargar imagen base desde el backend según el grid (para preview)
 useEffect(() => {
@@ -84,8 +94,15 @@ useEffect(() => {
       const { ProgressApi } = await import('@/services/progress');
       const current = await ProgressApi.get();
       const completed = Array.isArray(current.completedGames) ? current.completedGames : [];
+
+      // Marcar diferentes logros según el tamaño del puzzle
+      let achievement = '3_puzzle_completed'; // Default
+      if (gridParam === '6x6') achievement = '6x6_puzzle_completed';
+      else if (gridParam === '4x4') achievement = '4x4_puzzle_completed';
+      else if (gridParam === '3x5') achievement = '5x3_puzzle_completed';
+
       await ProgressApi.update({
-        completedGames: [...completed, '3_puzzle_completed']
+        completedGames: [...completed, achievement]
       });
     } catch (error) {
       console.warn('Error updating progress:', error);
@@ -116,7 +133,7 @@ useEffect(() => {
         <Image source={require('../../assets/images/btn-volver.png')} style={styles.backImg} resizeMode="contain" />
       </TouchableOpacity>
 
-      <Text style={styles.title}>🧩 {gridParam.toUpperCase()}</Text>
+      <Text style={styles.title}>🧩 {getDisplayTitle()}</Text>
 
       <PuzzleGrid
         imageSource={imgUrl ? { uri: imgUrl } : require('../../assets/images/personaje1.png')}
@@ -124,7 +141,7 @@ useEffect(() => {
         showPreview={showPreview}
         tiles={tiles || undefined}
         onPieceUpdate={(id, x, y, fixed) => {
-          console.log(`Pieza ${id} ${fixed ? 'fijada' : 'movida'} en (${x}, ${y})`);
+          // Log eliminado para reducir ruido en consola
         }}
         onComplete={completePuzzle}
       />
