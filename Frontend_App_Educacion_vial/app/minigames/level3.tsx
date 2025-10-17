@@ -13,7 +13,8 @@ export default function MinigamesLevel3() {
   const [completedActivities, setCompletedActivities] = useState<Record<string, boolean>>({
     coloring: false,
     quiz: false,
-    bicycle: false
+    bicycle: false,
+    puzzle: false
   });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -43,6 +44,7 @@ export default function MinigamesLevel3() {
         coloring: list.includes('3_colorear_divertidamente') || list.includes('3_6'),
         quiz: list.includes('3_quiz_vial') || list.includes('3_1'),
         bicycle: hasBicycleCompleted,
+        puzzle: list.includes('3_puzzle_completed') || list.includes('3_puzzle'),
       };
 
       (global as any)[cacheKey] = { activities, timestamp: now };
@@ -52,7 +54,7 @@ export default function MinigamesLevel3() {
 
   useEffect(() => {
     // Estado inicial rápido para buena UX
-    setCompletedActivities({ coloring: false, quiz: false, bicycle: false });
+    setCompletedActivities({ coloring: false, quiz: false, bicycle: false, puzzle: false });
     const t = setTimeout(() => { reloadData(); }, 100);
     return () => clearTimeout(t);
   }, [reloadData]);
@@ -132,6 +134,19 @@ export default function MinigamesLevel3() {
           </View>
         </View>
       </TouchableOpacity>
+
+      <TouchableOpacity style={styles.card} onPress={() => router.push('/puzzle' as Href)}>
+        <View style={styles.cardInnerColumnLarge}>
+          <ImageBackground source={require('../../assets/images/quizVial.png')} style={styles.cardTopLarge} imageStyle={styles.cardTopImageCover} resizeMode="cover" />
+          <View style={styles.cardBottomLargePurple}>
+            <View style={styles.cardTitleContainer}><Text style={styles.cardTitleLarge}>Rompecabezas</Text></View>
+            <Text style={styles.cardDescLarge}>Reordena las piezas del puzzle</Text>
+          </View>
+          <View style={[styles.completionBadge, !completedActivities.puzzle && { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}>
+            <Text style={[styles.completionStar, !completedActivities.puzzle && { color: '#555' }]}>{completedActivities.puzzle ? '⭐' : '☆'}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -151,6 +166,7 @@ const styles = StyleSheet.create({
   cardBottomLargeGreen: { backgroundColor: '#1B5E20', paddingVertical: 13, paddingHorizontal: 13 },
   cardBottomLargeYellow: { backgroundColor: '#F57C00', paddingVertical: 13, paddingHorizontal: 13 },
   cardBottomLargeOrange: { backgroundColor: '#BF360C', paddingVertical: 13, paddingHorizontal: 13 },
+  cardBottomLargePurple: { backgroundColor: '#7B1FA2', paddingVertical: 13, paddingHorizontal: 13 },
   cardTitleContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   cardTitleLarge: { color: colors.white, fontWeight: 'bold', fontSize: 19, textAlign: 'left', flex: 1 },
   cardDescLarge: { color: colors.white, opacity: 0.95, marginTop: 5, textAlign: 'left', fontSize: 15 },
