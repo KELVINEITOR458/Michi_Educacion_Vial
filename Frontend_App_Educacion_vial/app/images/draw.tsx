@@ -296,7 +296,7 @@ export default function ImagesDraw() {
         // En React Native, usar API_BASE_URL configurado en app.json; fallback al DEFAULT_BASE_URL de ApiClient
         const configured = (require('expo-constants').default.expoConfig?.extra?.API_BASE_URL as string) || undefined;
         const { ApiClient } = require('../../src/services/api');
-        const baseUrl = configured || new ApiClient().request ? (new ApiClient() as any).baseUrl || 'http://192.168.100.159:3002' : 'http://192.168.100.159:3002';
+        const baseUrl = configured || new ApiClient().request ? (new ApiClient() as any).baseUrl || 'http://192.168.100.3:3002' : 'http://192.168.100.3:3002';
         const url = `${baseUrl}/images/${childId}`;
         // Primero verificar si el servidor está disponible
         try {
@@ -317,7 +317,7 @@ export default function ImagesDraw() {
             },
             body: formData,
           }),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
           )
         ]) as Response;
@@ -337,9 +337,9 @@ export default function ImagesDraw() {
         // Show user-friendly error message
         let errorMessage = 'Error interno del servidor';
         let showOfflineOption = false;
-        if (serverError?.message?.includes('Network request failed') || 
-            serverError?.message?.includes('fetch') ||
-            serverError?.message?.includes('ECONNREFUSED')) {
+        if (serverError?.message?.includes('Network request failed') ||
+          serverError?.message?.includes('fetch') ||
+          serverError?.message?.includes('ECONNREFUSED')) {
           errorMessage = 'No se puede conectar al servidor.\n\n¿Quieres guardar localmente por ahora?';
           showOfflineOption = true;
         } else if (serverError?.message?.includes('401')) {
@@ -410,8 +410,8 @@ export default function ImagesDraw() {
       <View style={styles.canvasContainer}>
         <ViewShot
           ref={viewShotRef}
-          options={{ 
-            format: 'png', 
+          options={{
+            format: 'png',
             quality: 0.8
           }}
           style={{ backgroundColor: 'white' }}
@@ -640,12 +640,12 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 15,
   },
-  sectionTitle: {   
+  sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.white,
     marginBottom: 6,
-    marginTop:4,
+    marginTop: 4,
   },
   colorsContainer: {
     flexDirection: 'row',

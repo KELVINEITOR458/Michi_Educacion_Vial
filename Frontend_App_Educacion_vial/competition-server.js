@@ -222,7 +222,7 @@ app.get('/rooms', (req, res) => {
   res.json(roomsInfo);
 });
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3002;
 
 // Solo iniciar servidor si no estamos en entorno de Expo
 if (typeof window === 'undefined' && require.main === module) {

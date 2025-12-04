@@ -1,9 +1,9 @@
-import { 
-  WebSocketGateway, 
-  WebSocketServer, 
-  OnGatewayConnection, 
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage 
+  SubscribeMessage
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
@@ -185,20 +185,11 @@ const QUIZ_QUESTIONS: Question[] = [
 @WebSocketGateway({
   cors: {
     origin: [
-      'http://localhost:19006',
-      'http://192.168.100.159:19006',
-      'http://192.168.100.159:9999',
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
       'http://localhost:3003',
-      'http://localhost:3004',
-      'http://localhost:8000',
-      'http://localhost:8080',
-      'http://localhost:9999',
-      'http://localhost:*', // Permitir cualquier puerto localhost
-      'exp://192.168.100.159:19000',
-      /^https?:\/\/192\.168\.68\.\d{1,3}:\d+$/,
+      /^http:\/\/localhost:\d+$/,
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
@@ -226,23 +217,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (room.players[client.id]) {
         const player = room.players[client.id];
         delete room.players[client.id];
-        
+
         // Limpiar timers si la sala está en progreso
         if (room.timer) {
           clearTimeout(room.timer);
           room.timer = undefined;
         }
-        
+
         // Si la sala queda vacía, eliminarla
         if (Object.keys(room.players).length === 0) {
           this.rooms.delete(roomCode);
         } else {
           // Notificar a los demás jugadores
-          this.server.to(roomCode).emit('playerLeft', { 
-            playerId: client.id, 
-            players: Object.values(room.players) 
+          this.server.to(roomCode).emit('playerLeft', {
+            playerId: client.id,
+            players: Object.values(room.players)
           });
-          
+
           // Si era el host y hay otros jugadores, asignar nuevo host
           if (player.isHost) {
             const remainingPlayers = Object.values(room.players);
@@ -317,36 +308,36 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('error', { message: 'La competencia ya ha terminado' });
       return;
     }
-    
+
     // Permitir unirse durante 'waiting', 'starting' o 'in_progress'
 
     // Verificar si el jugador ya existe en el room
     const existingPlayerEntry = Object.entries(room.players).find(([_, player]) => player.id === data.playerId);
-    
+
     if (existingPlayerEntry) {
       // El jugador ya existe, actualizar su socketId y limpiar entrada anterior
       const [oldSocketId, existingPlayer] = existingPlayerEntry;
       delete room.players[oldSocketId]; // Limpiar entrada anterior
-      
+
       // Preservar el estado del jugador (incluyendo isHost)
       existingPlayer.socketId = client.id;
       room.players[client.id] = existingPlayer;
     } else {
       // Nuevo jugador
-    if (Object.keys(room.players).length >= room.maxPlayers) {
-      client.emit('error', { message: 'La sala está llena' });
-      return;
-    }
+      if (Object.keys(room.players).length >= room.maxPlayers) {
+        client.emit('error', { message: 'La sala está llena' });
+        return;
+      }
 
-    room.players[client.id] = {
-      id: data.playerId,
+      room.players[client.id] = {
+        id: data.playerId,
         socketId: client.id,
-      name: data.playerName,
-      score: 0,
+        name: data.playerName,
+        score: 0,
         time: 0,
         isReady: true,
-      isHost: false // Solo los nuevos jugadores son no-host por defecto
-    };
+        isHost: false // Solo los nuevos jugadores son no-host por defecto
+      };
       // Nuevo jugador unido
     }
 
@@ -426,7 +417,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Seleccionar 8 preguntas aleatorias
     const selectedQuestions = this.selectRandomQuestions(8);
-    
+
     // Configurar la sala para la competencia
     room.gameState = 'starting';
     room.questions = selectedQuestions;
@@ -475,7 +466,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const isCorrect = data.answer === question.answer;
-    
+
     // Calcular puntuación basada en tiempo y corrección
     let points = 0;
     if (isCorrect) {
@@ -493,7 +484,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     room.answeredPlayers!.add(client.id);
 
     // Notificar resultado al jugador
-    
+
     client.emit('answerResult', {
       questionIndex: data.questionIndex,
       isCorrect,
@@ -510,14 +501,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Verificar si todos los jugadores han respondido
     const totalPlayers = Object.keys(room.players).length;
     const answeredCount = room.answeredPlayers!.size;
-    
+
     // Si todos han respondido o es el primer jugador en responder, iniciar timer de 2 segundos
     if (answeredCount === totalPlayers || answeredCount === 1) {
       // Limpiar timer de auto-advance si ya existe
       if (room.roundEndTimer) {
         clearTimeout(room.roundEndTimer);
       }
-      
+
       // Configurar timer de 2 segundos para avanzar
       room.roundEndTimer = setTimeout(() => {
         this.endQuestion(data.roomCode);
@@ -583,7 +574,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Resetear tracking de respuestas para esta pregunta
     room.answeredPlayers = new Set();
-    
+
     // Limpiar todos los timers existentes
     if (room.timer) {
       clearTimeout(room.timer);
@@ -600,10 +591,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Guardar tiempo de inicio de la pregunta
     room.questionStartTime = Date.now();
-    
+
     // Emitir evento de ronda iniciada
     console.log(`🚀 BACKEND: Enviando roundStarted - Pregunta ${room.currentQuestionIndex + 1}: "${question.q.substring(0, 50)}..." con ${questionTime}ms`);
-    
+
     this.server.to(roomCode).emit('roundStarted', {
       index: room.currentQuestionIndex,
       total: room.questions.length,
@@ -660,7 +651,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const question = room.questions[room.currentQuestionIndex];
-    
+
     // Emitir evento de ronda terminada con la respuesta correcta
     this.server.to(roomCode).emit('roundEnded', {
       questionIndex: room.currentQuestionIndex,
@@ -673,9 +664,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room.questions || room.currentQuestionIndex === undefined) {
         return;
       }
-      
+
       room.currentQuestionIndex++;
-      
+
       // Verificar si ya terminamos todas las preguntas
       if (room.currentQuestionIndex >= room.questions.length) {
         this.endCompetition(roomCode);

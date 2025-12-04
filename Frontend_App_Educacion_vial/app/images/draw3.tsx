@@ -20,8 +20,8 @@ const TASK_IMAGES: Record<TaskId, any> = {
 };
 
 const COLORS = [
-  '#9E9E9E','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#FF8B94','#A8E6CF','#FFB347','#000000',
-  '#FF1744','#2196F3','#9C27B0','#FF9800','#009688','#795548','#607D8B','#E91E63','#3F51B5','#8BC34A',
+  '#9E9E9E', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#FF8B94', '#A8E6CF', '#FFB347', '#000000',
+  '#FF1744', '#2196F3', '#9C27B0', '#FF9800', '#009688', '#795548', '#607D8B', '#E91E63', '#3F51B5', '#8BC34A',
 ];
 
 export default function ImagesDraw3() {
@@ -59,7 +59,7 @@ export default function ImagesDraw3() {
         initial['cat-level3'] = list.includes('3_coloring_cat');
         initial['patrol-level3'] = list.includes('3_coloring_patrol');
         initial['semaforo-level3'] = list.includes('3_coloring_semaforo');
-      } catch {}
+      } catch { }
     }
     setCompletedTasks(initial);
   }, []);
@@ -184,7 +184,7 @@ export default function ImagesDraw3() {
       try {
         const { accessToken, childId } = await AuthService.getSession();
         if (!accessToken || !childId) throw new Error('No session');
-        const baseUrl = 'http://192.168.100.159:3002';
+        const baseUrl = 'http://192.168.100.3:3002';
         const url = `${baseUrl}/images/${childId}`;
         await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: formData });
 

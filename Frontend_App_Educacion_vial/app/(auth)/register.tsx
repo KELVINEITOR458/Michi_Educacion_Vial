@@ -59,6 +59,7 @@ export default function RegisterScreen() {
   };
 
   const onSubmit = async () => {
+    console.log("holaa")
     const error = validate();
     if (error) return Alert.alert('Validación', error);
     try {
@@ -99,7 +100,7 @@ export default function RegisterScreen() {
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Nacimiento (YYYY-MM-DD)</Text>
-            <TextInput style={styles.input} value={birthdate} onChangeText={onChangeBirthdate} placeholder="2015-05-01" autoCapitalize="none" keyboardType="number-pad"  placeholderTextColor="#ffffffcc" />
+            <TextInput style={styles.input} value={birthdate} onChangeText={onChangeBirthdate} placeholder="2015-05-01" autoCapitalize="none" keyboardType="number-pad" placeholderTextColor="#ffffffcc" />
           </View>
 
           <View style={styles.inputContainer}>
